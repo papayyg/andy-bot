@@ -1,0 +1,23 @@
+{
+	"az": {
+		"00001": "Salam! Mənim adım Andydir və mən sizə müxtəlif sosial şəbəkələrdən məlumat əldə etməyə kömək edəcəyəm. Sadəcə mənə mövcud sosial şəbəkələrdən bir posta və ya profilə link göndərin.",
+		"00002": "<i>Dil uğurla dəyişdirildi.</i>",
+		"cmd1": "Botun imkanlarını öyrənin",
+		"cmd2": "Dili dəyişdirin",
+		"cmd3": "Botu işə salın"
+	},
+	"ru": {
+		"00001": "Привет, друг! Меня зовут Andy и я помогу вам получить данные из различных социальных сетей. Просто пришлите мне ссылку на пост или профиль из доступных социальных сетей.",
+		"00002": "<i>Язык успешно изменен.</i>",
+		"cmd1": "Узнать возможности бота",
+		"cmd2": "Поменять язык",
+		"cmd3": "Запустить бота"
+	},
+	"en": {
+		"00001": "Hi, friend! My name is Энди and I will help you get data from various social networks. Just send me a link to a post or profile from available social networks.",
+		"00002": "<i>Language changed successfully.</i>",
+		"cmd1": "Find out the bot's capabilities",
+		"cmd2": "Change language",
+		"cmd3": "Launch bot"
+	}
+}
