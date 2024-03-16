@@ -1,4 +1,4 @@
-from utils.db import get_locals
+from utils.db.chats import get_locals
 
 locales_dict = {}
 

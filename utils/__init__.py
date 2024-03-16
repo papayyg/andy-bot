@@ -1,1 +1,2 @@
-from . import db, locales, states, commands
+from .db import chats, files
+from . import locales, states, commands

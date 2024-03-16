@@ -9,7 +9,6 @@ chats = cluster.AndyBot.chats
 async def save_chat_data(chat_data: dict):
     if not await chats.find_one({"_id": chat_data["_id"]}):
         chat_data["date_added"] = datetime.now()
-        chat_data["links"] = []
         await chats.insert_one(chat_data)
 
 async def change_language(chat_id: int, new_language: str):
