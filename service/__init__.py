@@ -1,1 +1,1 @@
-from . import tiktok
+from .tiktok import tiktok
