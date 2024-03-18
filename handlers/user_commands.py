@@ -32,7 +32,7 @@ async def start(message: Message, state: FSMContext):
     await message.answer('👋 <b><i>Hello!</i></b>\nSelect your language to continue:', reply_markup=langs_keyboard)
 
 
-@router.callback_query(Lang.lang, lambda query: query.data in ['az', 'ru', 'en'])
+@router.callback_query(Lang.lang)
 async def register_chat(call: CallbackQuery, state: FSMContext, bot: Bot):
     await state.clear()
 

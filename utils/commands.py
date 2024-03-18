@@ -11,11 +11,11 @@ async def get_commands(lang):
         ),
         BotCommand(
             command='lang',
-            description=await _('cmd3', lang)
+            description=await _('cmd2', lang)
         ),
         BotCommand(
             command='start',
-            description=await _('cmd2', lang)
+            description=await _('cmd3', lang)
         ),
     ]
     return commands
