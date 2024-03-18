@@ -2,7 +2,7 @@ import httpx
 import json
 import aiofiles
 import os
-import asyncio
+import shutil
 from bs4 import BeautifulSoup
 from datetime import datetime
 from playwright.async_api import async_playwright
@@ -22,6 +22,7 @@ class TikTokAPI:
         self.link = None
         self.data_type = None
         self.result = None
+        self.json_data = None
         self.tt_chain_token = None
         self.file_id = None
         self.watermark = None
@@ -107,8 +108,9 @@ class TikTokAPI:
         right_space_index = text.find(" ", start_index)
         if right_space_index == -1:
             right_space_index = len(text)
-
-        return text[left_space_index:right_space_index].strip()
+        final_str = text[left_space_index:right_space_index].strip()
+        if 'https' not in final_str: final_str = f'https://{final_str}'
+        return final_str
     
     async def readable_number(self, number):
         number_str = str(number)
@@ -194,6 +196,7 @@ class TikTokAPI:
         try:
             os.remove(self.path)
         except FileNotFoundError:
+            print("Error delete file")
             pass
         
 
@@ -245,27 +248,44 @@ class TikTokAPI:
             await stealth_async(page)
 
             async def save_responses_and_body(response):
-                try:
-                    if response.url.startswith("https://www.tiktok.com/api/post/item_list"):
-                        body = await response.body()
-                        regular_string = body.decode('utf-8')
-                        json_data = json.loads(regular_string)
-                        print(json_data)
+                if response.url.startswith("https://www.tiktok.com/api/post/item_list"):
+                    body = await response.body()
+                    regular_string = body.decode('utf-8')
+                    self.json_data = json.loads(regular_string)
 
-                        cookies = await page.context.cookies()
-                        tt_chain_token = None
-                        for cookie in cookies:
-                            if cookie['name'] == 'tt_chain_token':
-                                tt_chain_token = cookie["value"]
-                                break
-                        print(tt_chain_token)
-                except:
-                    pass
+                    cookies = await page.context.cookies()
+                    for cookie in cookies:
+                        if cookie['name'] == 'tt_chain_token':
+                            self.tt_chain_token = cookie["value"]
+                            break         
+
             page.on("response", save_responses_and_body)
-            
+
             await page.goto(url)
             await page.wait_for_load_state("networkidle")
-          
 
+            page.remove_listener("response", save_responses_and_body)
+            await browser.close()
+
+    async def download_videos(self, id, count):
+        os.makedirs(f'temp/{id}')
+        cookies = {'tt_chain_token': self.tt_chain_token}
+        headers = {'referer': 'https://www.tiktok.com/'}
+        async with httpx.AsyncClient() as client:
+            i = 0
+            for item in self.json_data["itemList"]:
+                if i == count: break
+                link = item["video"]["playAddr"]
+                response = await client.get(link, cookies=cookies, headers=headers)
+                async with aiofiles.open(f'temp/{id}/{i}.mp4', 'wb') as f:
+                    await f.write(response.content)
+                i += 1
+
+    async def delete_folder(self, path):
+        try:
+            shutil.rmtree(f'temp/{path}')
+        except:
+            print('Error delete folder')
+            pass
 
 

@@ -2,6 +2,7 @@ import re
 
 from aiogram import Router, F
 from aiogram.types import Message, FSInputFile, CallbackQuery
+from aiogram.utils.media_group import MediaGroupBuilder
 
 from service.tiktok import TikTokAPI
 from keyboards.inline import tiktok_video_options, download_videos
@@ -80,17 +81,35 @@ async def profile_handler(call: CallbackQuery):
 	await api.initialize(call.message, link)
 
 	photo = FSInputFile(api.path, api.author)
-	await call.message.answer_photo(photo, api.caption)
+	keyboard = await download_videos(call.message.chat.id, api.link)
+	await call.message.answer_photo(photo, api.caption, reply_markup=keyboard)
 
 	await api.delete_file()
 
 
 @router.callback_query(F.data.startswith('videos'))
 async def videos_handler(call: CallbackQuery):
+	await call.answer(await _('00006', locales_dict[call.message.chat.id]))
 	count = int(call.data[7])
+	await call.message.delete_reply_markup()
 	url = call.data.split("==")[1]
-
-	lang = locales_dict[call.message.chat.id]
+	id = call.message.chat.id
+	lang = locales_dict[id]
 	api = TikTokAPI(lang)
 
-	links, tt_chain_token = await api.get_videos(url)
+	await api.get_videos(url)
+	await api.download_videos(id, count)
+
+	media_group = MediaGroupBuilder(caption="Media group caption")
+	items = api.json_data["itemList"]
+	author = items[0]["author"]["uniqueId"]
+	link_start = f"https://www.tiktok.com/@{author}/video/"
+	for i in range(count):
+		final_link = f'{link_start}{items[i]["id"]}'
+		width = items[i]["video"]["width"]
+		height = items[i]["video"]["height"]
+		video = FSInputFile(f'temp/{id}/{i}.mp4', api.author)
+		media_group.add_video(video,caption=final_link, height=height, width=width)
+	await call.message.answer_media_group(media_group.build())
+
+	await api.delete_folder(id)

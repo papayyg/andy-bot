@@ -32,10 +32,10 @@ async def download_videos(chat_id, link):
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text=await _("00019", lang), callback_data=f"videos(5)=={link}"),
+                InlineKeyboardButton(text=await _("00019", lang), callback_data=f"videos(1)=={link}"),
             ],
             [
-                InlineKeyboardButton(text=await _("00020", lang), callback_data=f"videos(10)=={link}"),
+                InlineKeyboardButton(text=await _("00020", lang), callback_data=f"videos(5)=={link}"),
 			]
         ]
     )
