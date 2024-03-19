@@ -10,7 +10,7 @@ from playwright_stealth import stealth_async
 
 from locales.translations import _
 from utils.locales import locales_dict
-from utils.db.files import save_file, file_exists, add_watermark
+from utils.db.tiktok import save_file, file_exists, add_watermark
 
 
 class TikTokAPI:

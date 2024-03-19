@@ -2,18 +2,22 @@ import os
 import httpx
 import json
 import shutil
+import uuid
 from bs4 import BeautifulSoup
 
 from .api.video import Video
 from .api.user import User
 from .api.music import Music
+from utils.db import tiktok
 
 class TikTokAPI:
     def __init__(self, message) -> None:
         self.message = message
-        self.chat_id = message.chat.id
+        self.unique_id = uuid.uuid4().hex
         self.text = message.text
-        self.path = f'temp/{self.chat_id}'
+        self.path = f'temp/{self.unique_id}'
+
+        self.content_id = None
         self.link = None
         self.data = None
         self.tt_chain_token = None
@@ -22,20 +26,34 @@ class TikTokAPI:
         self.video = None
 
     async def __aenter__(self):
-        os.makedirs(f'temp/{self.chat_id}')
+        os.makedirs(f'temp/{self.unique_id}')
+        if not self.text:
+            self.content_id = 
         await self.extract_tiktok_link()
-        await self.get_scope_data()
+        if not await self.check_link():
+            await self.get_scope_data()
         await self.get_type_content()
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
-        shutil.rmtree(f'temp/{self.chat_id}')
-        pass
+        shutil.rmtree(f'temp/{self.unique_id}')
+        await self.save()
+
+    async def check_link(self):
+        r = await tiktok.link_exists(self.link)
+        if r:
+            self.data = r["data"]
+            self.tt_chain_token = r["tt_chain_token"]
+            self.type = r["type"]
+        return r
     
+    async def get_content(self):
+        r = await tiktok.get_link_by_content_id(self.content_id)
+        return await self.check_link(r["_id"])
 
     async def extract_tiktok_link(self):
         start_index = self.text.find("tiktok.com")
-        
+
         left_space_index = self.text.rfind(" ", 0, start_index) 
         if left_space_index == -1:
             left_space_index = 0
@@ -59,19 +77,40 @@ class TikTokAPI:
 
             self.data = json.loads(json_data)['__DEFAULT_SCOPE__']
             self.tt_chain_token = response.cookies.get("tt_chain_token")
-      
-    async def get_type_content(self):
+            await self.split_data()
+    
+    async def split_data(self):
         if "webapp.video-detail" in self.data:
-            self.data_type = 'video'
+            self.type = 'video'
             self.data = self.data["webapp.video-detail"]["itemInfo"]["itemStruct"]
+        elif "webapp.user-detail" in self.data or self.type == 'profile':
+            self.type = 'profile'
+            self.data = self.data["webapp.user-detail"]["userInfo"]
+        else:
+            self.type = 'slide'
+            self.data = None
+
+    async def get_type_content(self):
+        if self.type == 'video':
             self.video = Video(self.data)
             self.author = User(self.data["author"])
             self.music = Music(self.data["music"])
+            self.content_id = self.video.id
             self.video.parent = self
-        elif "webapp.user-detail" in self.data:
-            self.data_type = 'profile'
-            self.data = self.data["webapp.user-detail"]["userInfo"]
+            
+        elif self.type == 'profile':
+            # self.content_id = self.video.id
+            pass
         else:
-            self.data_type = 'slide'
+            self.type = 'slide'
             self.data = None
         
+    async def save(self):
+        data = {
+            "_id": self.link,
+            "data": self.data,
+            "content_id": self.content_id,
+            "tt_chain_token": self.tt_chain_token,
+            "type": self.type,
+        }
+        await tiktok.save_link(data)
