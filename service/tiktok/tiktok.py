@@ -11,13 +11,13 @@ from .api.music import Music
 from utils.db import tiktok
 
 class TikTokAPI:
+    video = Video
+
     def __init__(self, message) -> None:
         self.message = message
         self.unique_id = uuid.uuid4().hex
         self.text = message.text
         self.path = f'temp/{self.unique_id}'
-
-        self.content_id = None
         self.link = None
         self.data = None
         self.tt_chain_token = None
@@ -27,8 +27,6 @@ class TikTokAPI:
 
     async def __aenter__(self):
         os.makedirs(f'temp/{self.unique_id}')
-        if not self.text:
-            self.content_id = 
         await self.extract_tiktok_link()
         if not await self.check_link():
             await self.get_scope_data()
@@ -46,14 +44,10 @@ class TikTokAPI:
             self.tt_chain_token = r["tt_chain_token"]
             self.type = r["type"]
         return r
-    
-    async def get_content(self):
-        r = await tiktok.get_link_by_content_id(self.content_id)
-        return await self.check_link(r["_id"])
 
     async def extract_tiktok_link(self):
         start_index = self.text.find("tiktok.com")
-
+        
         left_space_index = self.text.rfind(" ", 0, start_index) 
         if left_space_index == -1:
             left_space_index = 0
@@ -95,11 +89,9 @@ class TikTokAPI:
             self.video = Video(self.data)
             self.author = User(self.data["author"])
             self.music = Music(self.data["music"])
-            self.content_id = self.video.id
             self.video.parent = self
             
         elif self.type == 'profile':
-            # self.content_id = self.video.id
             pass
         else:
             self.type = 'slide'
@@ -109,7 +101,6 @@ class TikTokAPI:
         data = {
             "_id": self.link,
             "data": self.data,
-            "content_id": self.content_id,
             "tt_chain_token": self.tt_chain_token,
             "type": self.type,
         }

@@ -1,7 +1,7 @@
 import re
 
 from aiogram import Router, F
-from aiogram.types import Message, FSInputFile, CallbackQuery
+from aiogram.types import Message, CallbackQuery
 from aiogram.utils.media_group import MediaGroupBuilder
 
 from service.tiktok.tiktok import TikTokAPI
@@ -31,5 +31,15 @@ async def watermark_handler(call: CallbackQuery):
     del keyboard.inline_keyboard[1]
     await call.message.edit_reply_markup(reply_markup=keyboard)
 
-    async with TikTokAPI(call.message) as api:
-        pass
+    id = call.data.split("==")[1]
+    video, api = await TikTokAPI.video.get_watermark_video(id)
+    r = await call.message.answer_video(video, api["duration"], api["width"], api["height"])
+    await TikTokAPI.video.save_watermark_id(id, r.video.file_id)
+
+
+@router.callback_query(F.data.startswith('stats'))
+async def stats_handler(call: CallbackQuery):
+	lang = locales_dict[call.message.chat.id]
+	id = call.data.split('==')[1]
+	text = await TikTokAPI.video.get_stats(id, lang)
+	await call.answer(text, show_alert=True)

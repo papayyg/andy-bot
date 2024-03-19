@@ -1,7 +1,7 @@
 import httpx
 import aiofiles
 from datetime import datetime
-from aiogram.types import FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup, BufferedInputFile
 
 from .user import User
 from .music import Music
@@ -15,7 +15,7 @@ class Video:
     def __init__(self, data) -> None:
         self.id = data["id"]
         self.file_id = None
-        self.watermark_id = None
+        self.watermark_file_id = None
         self.desc = data["desc"].replace("<", "\\<").replace(">", "\\>")
         self.second_desc = None
         self.create_time = data["createTime"]
@@ -89,12 +89,48 @@ class Video:
             ]
         )
         return keyboard
+    
+    async def get_watermark_video(id):
+        r = await tiktok.id_exists(id)
+        if not r["watermark_file_id"]:
+            api = await tiktok.get_tt_chain_token(id)
+            cookies = {"tt_chain_token": api["tt_chain_token"]}
+            headers = {"referer": "https://www.tiktok.com/"}
+            async with httpx.AsyncClient() as client:
+                response = await client.get(r["watermark_link"], cookies=cookies, headers=headers)
+                return BufferedInputFile(response.content, api["data"]["author"]["uniqueId"]), r
+        return r["watermark_file_id"], r
+
+    async def save_watermark_id(id, file_id):
+        await tiktok.set_watermark_id(id, file_id)
+        
+    async def save_watermark_id(id, file_id):
+        await tiktok.set_watermark_id(id, file_id)
+        
+    async def get_stats(id, lang):
+        result = await tiktok.id_exists(id)
+        stats = result["stats"]
+        text = f'{result["create_time"]}\n\n'
+        text += f'❤️ {await _("00014", lang)} - {await Video.readable_number(stats["likes"])}\n'
+        text += f'💬 {await _("00015", lang)} - {await Video.readable_number(stats["comment"])}\n'
+        text += f'📣 {await _("00016", lang)} - {await Video.readable_number(stats["share"])}\n'
+        text += f'▶️ {await _("00017", lang)} - {await Video.readable_number(stats["play"])}\n'
+        text += f'🌟 {await _("00018", lang)} - {await Video.readable_number(stats["collect"])}\n'
+        return text
+    
+    async def readable_number(number):
+        number_str = str(number)
+        groups = []
+        while number_str:
+            groups.append(number_str[-3:])
+            number_str = number_str[:-3]
+        return ' '.join(reversed(groups))
 
     async def save(self):
         data = {
             "_id": self.id,
             "file_id": self.file_id,
-            "watermark_file_id": self.watermark_id,
+            "watermark_file_id": self.watermark_file_id,
             "desc": self.desc,
             "second_desc": self.second_desc,
             "create_time": self.create_time,
