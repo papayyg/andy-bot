@@ -12,6 +12,7 @@ from utils.db import tiktok
 
 class TikTokAPI:
     video = Video
+    user = User
 
     def __init__(self, message) -> None:
         self.message = message
@@ -87,12 +88,15 @@ class TikTokAPI:
     async def get_type_content(self):
         if self.type == 'video':
             self.video = Video(self.data)
-            self.author = User(self.data["author"])
+            self.user = User(self.data["author"])
             self.music = Music(self.data["music"])
             self.video.parent = self
-            
+            self.music.parent = self
         elif self.type == 'profile':
-            pass
+            self.user = User(self.data["user"])
+            self.user.parent = self
+            self.user.stats = self.data["stats"]
+            self.bio_links = self.data["user"].get("bioLink")
         else:
             self.type = 'slide'
             self.data = None

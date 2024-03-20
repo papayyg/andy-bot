@@ -59,7 +59,7 @@ class Video:
                 response = await client.get(link, cookies=cookies, headers=headers)
                 async with aiofiles.open(self.parent.path, "wb") as f:
                     await f.write(response.content)
-            self.file_id = FSInputFile(self.parent.path, self.parent.author.unique_name)
+            self.file_id = FSInputFile(self.parent.path, self.parent.user.unique_name)
         return self.file_id
 
     async def create_caption(self):
@@ -71,7 +71,7 @@ class Video:
             self.second_desc = self.desc[870:]
             self.desc = self.desc[:870]
 
-        return f'👤 <a href="{self.parent.link}">{self.parent.author.unique_name}</a>\n\n{self.desc}'
+        return f'👤 <a href="{self.parent.link}">{self.parent.user.unique_name}</a>\n\n{self.desc}'
     
     async def crate_keyboard(self):
         lang = locales_dict[self.parent.message.chat.id]
@@ -84,7 +84,7 @@ class Video:
                 [InlineKeyboardButton(text=await _("00005", lang), callback_data=f"watermark=={self.id}")],
                 [
                     InlineKeyboardButton(text=await _("00013", lang), callback_data=f"stats=={self.id}"),
-                    InlineKeyboardButton(text=await _("00012", lang), callback_data=f"profile=={self.id}")
+                    InlineKeyboardButton(text=await _("00012", lang), callback_data=f"profile=={self.parent.tt_chain_token}")
                 ]
             ]
         )
@@ -101,9 +101,6 @@ class Video:
                 return BufferedInputFile(response.content, api["data"]["author"]["uniqueId"]), r
         return r["watermark_file_id"], r
 
-    async def save_watermark_id(id, file_id):
-        await tiktok.set_watermark_id(id, file_id)
-        
     async def save_watermark_id(id, file_id):
         await tiktok.set_watermark_id(id, file_id)
         
@@ -129,6 +126,7 @@ class Video:
     async def save(self):
         data = {
             "_id": self.id,
+            "tt_chain_token": self.parent.tt_chain_token,
             "file_id": self.file_id,
             "watermark_file_id": self.watermark_file_id,
             "desc": self.desc,
