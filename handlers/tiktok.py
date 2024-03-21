@@ -5,7 +5,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.utils.media_group import MediaGroupBuilder
 
 from service.tiktok.tiktok import TikTokAPI
-from keyboards.inline import tiktok_video_options, download_videos
+from keyboards.inline import commnet_keyboard
 from locales.translations import _
 from utils.locales import locales_dict
 
@@ -13,6 +13,7 @@ router = Router()
 
 @router.message(F.text.contains('tiktok.com/'))
 async def tiktok_message(message: Message):
+    ff = await message.answer(await _('00006', locales_dict[message.chat.id]))
     lang = locales_dict[message.chat.id]
     async with TikTokAPI(message) as api:
         if api.type == 'video':
@@ -36,17 +37,20 @@ async def tiktok_message(message: Message):
         await message.delete()
 
     await new_video.edit_reply_markup(reply_markup=keyboard)
+    await ff.delete()
+    
 @router.callback_query(F.data.startswith('watermark'))
 async def watermark_handler(call: CallbackQuery):
-    await call.answer(await _('00006', locales_dict[call.message.chat.id]))
-    keyboard = call.message.reply_markup
-    del keyboard.inline_keyboard[1]
-    await call.message.edit_reply_markup(reply_markup=keyboard)
-
+    # await call.answer(await _('00006', locales_dict[call.message.chat.id]))
+   
     id = call.data.split("==")[1]
     video, api = await TikTokAPI.video.get_watermark_video(id)
     r = await call.message.answer_video(video, api["duration"], api["width"], api["height"])
     await TikTokAPI.video.save_watermark_id(id, r.video.file_id)
+
+    keyboard = call.message.reply_markup
+    del keyboard.inline_keyboard[1]
+    await call.message.edit_reply_markup(reply_markup=keyboard)
 
 @router.callback_query(F.data.startswith('stats'))
 async def stats_handler(call: CallbackQuery):
@@ -56,12 +60,29 @@ async def stats_handler(call: CallbackQuery):
     await call.answer(text, show_alert=True)
 
 @router.callback_query(F.data.startswith('profile'))
-async def profile_handler(call: CallbackQuery):
-    await call.answer(await _('00006', locales_dict[call.message.chat.id]))
-    keyboard = call.message.reply_markup
-    del keyboard.inline_keyboard[-1][-1]
-    await call.message.edit_reply_markup(reply_markup=keyboard)
-    
+async def profile_handler(call: CallbackQuery):   
     tt_chain_token = call.data.split('profile==')[1]
     photo, text = await TikTokAPI.user.get_video_profile(tt_chain_token)
     await call.message.answer_photo(photo, caption=text)
+
+    keyboard = call.message.reply_markup
+    del keyboard.inline_keyboard[-2][-1]
+    await call.message.edit_reply_markup(reply_markup=keyboard)
+    
+@router.callback_query(F.data.startswith('comments'))
+async def comments_handler(call: CallbackQuery):
+    id = call.data.split('==')[1]
+    text = await TikTokAPI.video.get_comments(id, 5)
+    
+    new_keyboard = await commnet_keyboard(call.message.chat.id, id)
+    await call.message.reply(text, disable_web_page_preview=True, reply_markup=new_keyboard)
+
+    keyboard = call.message.reply_markup
+    del keyboard.inline_keyboard[-1]
+    await call.message.edit_reply_markup(reply_markup=keyboard)
+
+@router.callback_query(F.data.startswith('more_comments'))
+async def more_comments_handler(call: CallbackQuery):
+    id = call.data.split('==')[1]
+    text = await TikTokAPI.video.get_comments(id, 10)
+    await call.message.edit_text(text, disable_web_page_preview=True)

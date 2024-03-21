@@ -85,7 +85,8 @@ class Video:
                 [
                     InlineKeyboardButton(text=await _("00013", lang), callback_data=f"stats=={self.id}"),
                     InlineKeyboardButton(text=await _("00012", lang), callback_data=f"profile=={self.parent.tt_chain_token}")
-                ]
+                ],
+                [InlineKeyboardButton(text=await _("00021", lang), callback_data=f"comments=={self.id}")]
             ]
         )
         return keyboard
@@ -122,6 +123,24 @@ class Video:
             groups.append(number_str[-3:])
             number_str = number_str[:-3]
         return ' '.join(reversed(groups))
+    
+    async def get_comments(id, count):
+        link = f'https://www.tiktok.com/api/comment/list/?aweme_id={id}&count={50}'
+        async with httpx.AsyncClient() as client:
+            response = await client.get(link)
+            comments = (response.json())["comments"]
+        text = ""
+        i = 0
+        for comment in comments:
+            if i < count:
+                point = f'<b>></b><a href="{comment["share_info"]["url"]}">{comment["user"]["nickname"]}</a>\n{comment["text"]}\n\n'
+                if len(point) > 300:
+                    continue
+                text += point
+                i += 1
+            else:
+                break
+        return text
 
     async def save(self):
         data = {
