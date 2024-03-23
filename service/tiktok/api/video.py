@@ -3,8 +3,6 @@ import aiofiles
 from datetime import datetime
 from aiogram.types import FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup, BufferedInputFile
 
-from .user import User
-from .music import Music
 from utils.db import tiktok
 from locales.translations import _
 from utils.locales import locales_dict
@@ -29,13 +27,7 @@ class Video:
         self.download_link = data["video"]["playAddr"]
         self.watermark_link = data["video"]["downloadAddr"]
 
-        self.stats = {
-            "likes": data["statsV2"]["diggCount"],
-            "share": data["statsV2"]["shareCount"],
-            "comment": data["statsV2"]["commentCount"],
-            "play": data["statsV2"]["playCount"],
-            "collect": data["statsV2"]["collectCount"],
-        }
+        self.stats = data["statsV2"]
 
         self.parent = None
 
@@ -109,11 +101,11 @@ class Video:
         result = await tiktok.id_exists(id)
         stats = result["stats"]
         text = f'{result["create_time"]}\n\n'
-        text += f'❤️ {await _("00014", lang)} - {await Video.readable_number(stats["likes"])}\n'
-        text += f'💬 {await _("00015", lang)} - {await Video.readable_number(stats["comment"])}\n'
-        text += f'📣 {await _("00016", lang)} - {await Video.readable_number(stats["share"])}\n'
-        text += f'▶️ {await _("00017", lang)} - {await Video.readable_number(stats["play"])}\n'
-        text += f'🌟 {await _("00018", lang)} - {await Video.readable_number(stats["collect"])}\n'
+        text += f'❤️ {await _("00014", lang)} - {await Video.readable_number(stats["diggCount"])}\n'
+        text += f'💬 {await _("00015", lang)} - {await Video.readable_number(stats["commentCount"])}\n'
+        text += f'📣 {await _("00016", lang)} - {await Video.readable_number(stats["shareCount"])}\n'
+        text += f'▶️ {await _("00017", lang)} - {await Video.readable_number(stats["playCount"])}\n'
+        text += f'🌟 {await _("00018", lang)} - {await Video.readable_number(stats["collectCount"])}\n'
         return text
     
     async def readable_number(number):

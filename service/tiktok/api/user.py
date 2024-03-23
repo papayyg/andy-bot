@@ -1,6 +1,6 @@
 import httpx
 import aiofiles
-from aiogram.types import FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup, BufferedInputFile
+from aiogram.types import FSInputFile, BufferedInputFile
 
 from utils.db import tiktok
 from locales.translations import _
@@ -54,9 +54,12 @@ class User:
             number_str = number_str[:-3]
         return ' '.join(reversed(groups))
     
-    async def get_video_profile(tt_chain_token):
+    async def get_profile(tt_chain_token):
         link = await tiktok.get_data_by_token(tt_chain_token)
-        author = link["data"]["author"]
+        if 'author' in link["data"]:
+            author = link["data"]["author"]
+        else:
+            author = link["data"]["itemInfo"]["itemStruct"]["author"]
         cookies = {"tt_chain_token": link["tt_chain_token"]}
         headers = {"referer": "https://www.tiktok.com/"}
 
@@ -68,3 +71,4 @@ class User:
         async with httpx.AsyncClient() as client:
             response = await client.get(author["avatarLarger"], cookies=cookies, headers=headers)
             return BufferedInputFile(response.content, author["uniqueId"]), text
+            

@@ -4,15 +4,20 @@ import json
 import shutil
 import uuid
 from bs4 import BeautifulSoup
+from playwright.async_api import async_playwright
+from playwright_stealth import stealth_async
 
 from .api.video import Video
 from .api.user import User
 from .api.music import Music
+from .api.slides import Slides
 from utils.db import tiktok
 
 class TikTokAPI:
     video = Video
     user = User
+    music = Music
+    slides = Slides
 
     def __init__(self, message) -> None:
         self.message = message
@@ -21,10 +26,9 @@ class TikTokAPI:
         self.path = f'temp/{self.unique_id}'
         self.link = None
         self.data = None
+        self.content = None
         self.tt_chain_token = None
         self.type = None
-
-        self.video = None
 
     async def __aenter__(self):
         os.makedirs(f'temp/{self.unique_id}')
@@ -62,7 +66,7 @@ class TikTokAPI:
 
         self.link = final_str
     
-    async def get_scope_data(self):
+    async def get_scope_data(self, step = False):
         async with httpx.AsyncClient() as client:
             response = await client.get(self.link, follow_redirects=True)
             soup = BeautifulSoup(response.text, "html.parser")
@@ -72,9 +76,17 @@ class TikTokAPI:
 
             self.data = json.loads(json_data)['__DEFAULT_SCOPE__']
             self.tt_chain_token = response.cookies.get("tt_chain_token")
+
+            if step: return
             await self.split_data()
-    
+
+    async def redirect(self):
+        self.link = f'https://www.tiktok.com{self.data["webapp.browserRedirect-context"]["browserRedirectUrl"]}'
+        await self.get_scope_data(True)
+
     async def split_data(self):
+        if "webapp.browserRedirect-context" in self.data:
+            await self.redirect()
         if "webapp.video-detail" in self.data:
             self.type = 'video'
             self.data = self.data["webapp.video-detail"]["itemInfo"]["itemStruct"]
@@ -82,9 +94,8 @@ class TikTokAPI:
             self.type = 'profile'
             self.data = self.data["webapp.user-detail"]["userInfo"]
         else:
-            self.type = 'slide'
-            self.data = None
-
+            pass
+        
     async def get_type_content(self):
         if self.type == 'video':
             self.video = Video(self.data)
@@ -98,9 +109,55 @@ class TikTokAPI:
             self.user.stats = self.data["stats"]
             self.bio_links = self.data["user"].get("bioLink")
         else:
-            self.type = 'slide'
-            self.data = None
+            if not self.type:
+                await self.browser_initialization()
+            await self.get_sub_type()
+
+    async def get_sub_type(self):
+        if 'itemInfo' in self.data:
+            data = self.data["itemInfo"]["itemStruct"]
+            self.type = 'slides'
+            self.slides = Slides(data)
+            self.user = User(data["author"])
+            self.music = Music(data["music"])
+            self.music.parent = self
+            self.slides.parent = self
+        elif 'musicInfo' in self.data:
+            pass
+        elif 'challengeInfo' in self.data:
+            pass
+
+    async def browser_initialization(self):
+        try:
+            async with async_playwright() as p:
+                browser = await p.chromium.launch()
+                await browser.new_context()
+                context  = await browser.new_context(**p.devices['Desktop Chrome'])
+                page = await context.new_page()
+                await stealth_async(page)
+
+                async def save_responses_and_body(response):
+                    if response.url.startswith("https://www.tiktok.com/api/item/detail/"):
+                        body = await response.body()
+                        regular_string = body.decode('utf-8')
+                        self.data = json.loads(regular_string)
+
+                        cookies = await page.context.cookies()
+                        for cookie in cookies:
+                            if cookie['name'] == 'tt_chain_token':
+                                self.tt_chain_token = cookie["value"]
+                                break
+                        page.remove_listener("response", save_responses_and_body)
+                        await browser.close()
         
+                page.on("response", save_responses_and_body)
+                
+                await page.goto(self.link)
+                # await page.wait_for_load_state("networkidle")
+                await page.wait_for_selector(".swiper-wrapper")
+        except:
+            pass
+
     async def save(self):
         data = {
             "_id": self.link,
