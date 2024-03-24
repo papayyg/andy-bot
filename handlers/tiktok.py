@@ -27,6 +27,8 @@ async def tiktok_message(message: Message):
     async with TikTokAPI(message) as api:
         if api.type == 'video':
             video = await api.video.download(api.video.download_link)
+            if video == False:
+                return await message.answer(await _("00027", lang))
             caption = await api.video.create_caption()
             keyboard = await api.video.crate_keyboard()
             new_video = await message.answer_video(video, api.video.duration, api.video.width, api.video.height, caption=caption)
@@ -66,7 +68,20 @@ async def tiktok_message(message: Message):
             new_video = await message.answer_video(video, api.video.duration, api.video.width, api.video.height, caption=caption)
             api.video.file_id = new_video.video.file_id 
             await api.video.save()
+            
+        elif api.type == "stories":
+            video, caption = await api.ssstik_download()
+            await message.answer_video(video, caption=caption)
 
+        elif api.type == "live":
+            await ff.delete()
+            return await message.answer(await _("00028", lang))
+
+        elif api.type == "playlist":
+            await ff.delete()
+            return await message.answer(await _("00029", lang))
+            
+            
         await message.delete()
     
     if new_video and new_video.reply_markup:

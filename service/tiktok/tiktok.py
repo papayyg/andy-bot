@@ -3,9 +3,11 @@ import httpx
 import json
 import shutil
 import uuid
+import aiofiles
 from bs4 import BeautifulSoup
 from playwright.async_api import async_playwright
 from playwright_stealth import stealth_async
+from aiogram.types import FSInputFile
 
 from .api.video import Video
 from .api.user import User
@@ -31,6 +33,8 @@ class TikTokAPI:
         self.content = None
         self.tt_chain_token = None
         self.type = None
+        self.mobile = False
+        self.challenge = False
 
     async def __aenter__(self):
         os.makedirs(f'temp/{self.unique_id}')
@@ -42,7 +46,7 @@ class TikTokAPI:
 
     async def __aexit__(self, exc_type, exc, tb):
         shutil.rmtree(f'temp/{self.unique_id}')
-        if self.type != 'challenge':
+        if self.type not in ['challenge', 'stories']:
             await self.save()
 
     async def check_link(self):
@@ -70,18 +74,21 @@ class TikTokAPI:
         self.link = final_str
     
     async def get_scope_data(self, step = False):
-        async with httpx.AsyncClient() as client:
-            response = await client.get(self.link, follow_redirects=True)
-            soup = BeautifulSoup(response.text, "html.parser")
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(self.link, follow_redirects=True)
+                soup = BeautifulSoup(response.text, "html.parser")
+                script_tag = soup.find('script', id='__UNIVERSAL_DATA_FOR_REHYDRATION__').string
+                json_data = script_tag[script_tag.find('{'):script_tag.rfind('}') + 1]
 
-            script_tag = soup.find('script', id='__UNIVERSAL_DATA_FOR_REHYDRATION__').string
-            json_data = script_tag[script_tag.find('{'):script_tag.rfind('}') + 1]
+                self.data = json.loads(json_data)['__DEFAULT_SCOPE__']
+                self.tt_chain_token = response.cookies.get("tt_chain_token")
 
-            self.data = json.loads(json_data)['__DEFAULT_SCOPE__']
-            self.tt_chain_token = response.cookies.get("tt_chain_token")
-
-            if step: return
-            await self.split_data()
+                if step: return
+                await self.split_data()
+        except:
+            self.type = 'live'
+            return
 
     async def redirect(self):
         self.link = f'https://www.tiktok.com{self.data["webapp.browserRedirect-context"]["browserRedirectUrl"]}'
@@ -90,13 +97,18 @@ class TikTokAPI:
     async def split_data(self):
         if "webapp.browserRedirect-context" in self.data:
             await self.redirect()
-        if "webapp.video-detail" in self.data:
+        if "webapp.video-detail" in self.data and "itemInfo" in self.data["webapp.video-detail"]:
             self.type = 'video'
             self.data = self.data["webapp.video-detail"]["itemInfo"]["itemStruct"]
         elif "webapp.user-detail" in self.data or self.type == 'profile':
             self.type = 'profile'
             self.data = self.data["webapp.user-detail"]["userInfo"]
+        elif "playlist" in self.data["seo.abtest"]["canonical"]:
+            self.type = 'playlist'
+            return
         else:
+            if "webapp.video-detail" in self.data and "itemInfo" not in self.data["webapp.video-detail"]:
+                self.mobile = True
             pass
         
     async def get_type_content(self):
@@ -113,10 +125,17 @@ class TikTokAPI:
             self.bio_links = self.data["user"].get("bioLink")
         else:
             if not self.type:
-                await self.browser_initialization()
+                if not self.mobile:
+                    await self.browser_initialization()
+                else:
+                    self.type = 'stories'
+                    await self.sstick_get()
+                    return
             await self.get_sub_type()
 
     async def get_sub_type(self):
+        if self.type == 'live':
+            return
         if 'itemInfo' in self.data:
             data = self.data["itemInfo"]["itemStruct"]
             self.type = 'slides'
@@ -142,6 +161,33 @@ class TikTokAPI:
             self.user = User(self.content["author"])
             self.video.parent = self
 
+    async def sstick_get(self):
+        headers = {
+            'sec-ch-ua': '"Google Chrome";v="123", "Not:A-Brand";v="8", "Chromium";v="123"',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+        }
+        params = { 'url': 'dl' }
+        data = {
+            'id': self.link,
+            'locale': 'ru',
+            'tt': 'eG1ISHQ1',
+        }
+        async with httpx.AsyncClient() as client:
+            response = await client.post('https://ssstik.io/abc', params=params,headers=headers, data=data)
+            soup = BeautifulSoup(response.text, 'html.parser')
+            self.download_link = soup.find('a', class_='without_watermark').get('href')
+            self.author = soup.find('h2').text
+
+    async def ssstik_download(self):
+        self.path += "/video.mp4"
+        async with httpx.AsyncClient() as client:
+            response = await client.get(self.download_link)
+            async with aiofiles.open(self.path, "wb") as f:
+                await f.write(response.content)
+
+        caption = f'👤 <a href="{self.link}">{self.author}</a>'
+        return FSInputFile(self.path, self.author), caption
+        
 
     async def browser_initialization(self):
         try:
@@ -151,9 +197,8 @@ class TikTokAPI:
                 context  = await browser.new_context(**p.devices['Desktop Chrome'])
                 page = await context.new_page()
                 await stealth_async(page)
-                challenge = False
+                self.challenge = False
                 async def save_responses_and_body(response):
-                    global challenge
                     if response.url.startswith("https://www.tiktok.com/api/item/detail/") or response.url.startswith("https://www.tiktok.com/api/music/detail/"):
                         body = await response.body()
                         regular_string = body.decode('utf-8')
@@ -176,8 +221,8 @@ class TikTokAPI:
                             if cookie['name'] == 'tt_chain_token':
                                 self.tt_chain_token = cookie["value"]
                                 break
-                        challenge = True
-                    elif response.url.startswith("https://www.tiktok.com/api/challenge/item_list/") and challenge:
+                        self.challenge = True
+                    elif response.url.startswith("https://www.tiktok.com/api/challenge/item_list/") and self.challenge:
                         body = await response.body()
                         regular_string = body.decode('utf-8')
                         self.content = json.loads(regular_string)["itemList"][0]

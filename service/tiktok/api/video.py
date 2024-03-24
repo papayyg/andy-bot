@@ -47,6 +47,9 @@ class Video:
 
             cookies = {"tt_chain_token": self.parent.tt_chain_token}
             headers = {"referer": "https://www.tiktok.com/"}
+            self.size = int(response.headers.get("Content-Length", 0))
+            if self.size > 48000000:
+                return False
             async with httpx.AsyncClient() as client:
                 response = await client.get(link, cookies=cookies, headers=headers)
                 async with aiofiles.open(self.parent.path, "wb") as f:
