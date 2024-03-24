@@ -51,9 +51,25 @@ async def tiktok_message(message: Message):
             await api.slides.save()
 
             await get_audio(api, message, keyboard)
+            
+        elif api.type == 'music':
+            photo = await api.user.download_cover()
+            caption = await api.music.get_caption(lang)
+            await message.answer_photo(photo, caption=caption, disable_web_page_preview=True)
+            await get_audio(api, message)
+
+        elif api.type == "challenge":
+            caption = await api.challenge.create_caption(lang)
+            await message.answer(caption, disable_web_page_preview=True)
+            video = await api.video.download(api.video.download_link)
+            caption = await api.video.create_caption()
+            new_video = await message.answer_video(video, api.video.duration, api.video.width, api.video.height, caption=caption)
+            api.video.file_id = new_video.video.file_id 
+            await api.video.save()
+
         await message.delete()
     
-    if new_video:
+    if new_video and new_video.reply_markup:
         await new_video.edit_reply_markup(reply_markup=keyboard)
     await ff.delete()
 

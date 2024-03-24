@@ -14,8 +14,7 @@ class User:
 
         self.avatar = data["avatarLarger"]
         self.signature = data["signature"].replace('<', '\\<').replace('>', '\\>')
-        self.verified = data["verified"]
-        
+
         self.parent = None
         self.stats = None
         self.bio_links = None
@@ -64,9 +63,9 @@ class User:
         headers = {"referer": "https://www.tiktok.com/"}
 
         link = f'➡️ tiktok.com/@{author["uniqueId"]}'
-        titke = f'👤 <b>{author["nickname"]}</b>\n{link}'
+        title = f'👤 <b>{author["nickname"]}</b>\n{link}'
         desc = f'\n\n{author["signature"]}' if author["signature"] != '' else ''
-        text = f'{titke}{desc}'
+        text = f'{title}{desc}'
 
         async with httpx.AsyncClient() as client:
             response = await client.get(author["avatarLarger"], cookies=cookies, headers=headers)

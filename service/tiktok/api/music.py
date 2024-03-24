@@ -3,6 +3,7 @@ import aiofiles
 from aiogram.types import FSInputFile, BufferedInputFile
 
 from utils.db import tiktok
+from locales.translations import _
 
 class Music:
     def __init__(self, data) -> None:
@@ -14,6 +15,7 @@ class Music:
         self.link = data["playUrl"]
         self.cover = data["coverLarge"]
         self.duration = data["duration"]
+        self.stats = None
         
     async def download(self):
         if not await self.check_id():
@@ -30,6 +32,11 @@ class Music:
                 response = await client.get(self.cover, cookies=cookies, headers=headers)
                 self.thumbnail = BufferedInputFile(response.content, 'thumbnail')
         return self.file_id
+    
+    async def get_caption(self, lang):
+        author = f'👤 <a href="{self.parent.link}">{self.author}</a>'
+        text = f'{author}\n<i>{await _("00024", lang)}</i>: <b>{self.stats}</b>'
+        return text
     
     async def check_id(self):
         r = await tiktok.music_exists(self.id)

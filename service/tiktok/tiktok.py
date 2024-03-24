@@ -11,6 +11,7 @@ from .api.video import Video
 from .api.user import User
 from .api.music import Music
 from .api.slides import Slides
+from .api.challenge import Challenge
 from utils.db import tiktok
 
 class TikTokAPI:
@@ -18,6 +19,7 @@ class TikTokAPI:
     user = User
     music = Music
     slides = Slides
+    challenge = Challenge
 
     def __init__(self, message) -> None:
         self.message = message
@@ -40,7 +42,8 @@ class TikTokAPI:
 
     async def __aexit__(self, exc_type, exc, tb):
         shutil.rmtree(f'temp/{self.unique_id}')
-        await self.save()
+        if self.type != 'challenge':
+            await self.save()
 
     async def check_link(self):
         r = await tiktok.link_exists(self.link)
@@ -123,21 +126,35 @@ class TikTokAPI:
             self.music.parent = self
             self.slides.parent = self
         elif 'musicInfo' in self.data:
-            pass
+            data = self.data["musicInfo"]
+            self.type = 'music'
+            self.user = User(data["author"])
+            self.music = Music(data["music"])
+            self.music.parent = self
+            self.user.parent = self
+            self.music.stats = data["stats"]["videoCount"]
         elif 'challengeInfo' in self.data:
-            pass
+            data = self.data["challengeInfo"]
+            self.type = 'challenge'
+            self.challenge = Challenge(data)
+            self.challenge.parent = self
+            self.video = Video(self.content)
+            self.user = User(self.content["author"])
+            self.video.parent = self
+
 
     async def browser_initialization(self):
         try:
             async with async_playwright() as p:
-                browser = await p.chromium.launch()
+                browser = await p.chromium.launch(headless=True)
                 await browser.new_context()
                 context  = await browser.new_context(**p.devices['Desktop Chrome'])
                 page = await context.new_page()
                 await stealth_async(page)
-
+                challenge = False
                 async def save_responses_and_body(response):
-                    if response.url.startswith("https://www.tiktok.com/api/item/detail/"):
+                    global challenge
+                    if response.url.startswith("https://www.tiktok.com/api/item/detail/") or response.url.startswith("https://www.tiktok.com/api/music/detail/"):
                         body = await response.body()
                         regular_string = body.decode('utf-8')
                         self.data = json.loads(regular_string)
@@ -147,6 +164,24 @@ class TikTokAPI:
                             if cookie['name'] == 'tt_chain_token':
                                 self.tt_chain_token = cookie["value"]
                                 break
+                        page.remove_listener("response", save_responses_and_body)
+                        await browser.close()
+                    elif response.url.startswith("https://www.tiktok.com/api/challenge/detail/"):
+                        body = await response.body()
+                        regular_string = body.decode('utf-8')
+                        self.data = json.loads(regular_string)
+
+                        cookies = await page.context.cookies()
+                        for cookie in cookies:
+                            if cookie['name'] == 'tt_chain_token':
+                                self.tt_chain_token = cookie["value"]
+                                break
+                        challenge = True
+                    elif response.url.startswith("https://www.tiktok.com/api/challenge/item_list/") and challenge:
+                        body = await response.body()
+                        regular_string = body.decode('utf-8')
+                        self.content = json.loads(regular_string)["itemList"][0]
+                        
                         page.remove_listener("response", save_responses_and_body)
                         await browser.close()
         
