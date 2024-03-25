@@ -30,6 +30,9 @@
 		"00027": "⚠️ Videonun çəkisi 50 MB-dan çoxdur",
 		"00028": "⚠️ Yayımlar dəstəklənmir",
 		"00029": "⚠️ Pleylistlər dəstəklənmir",
+		"00030": "👋 <b><i>Salam!</i></b>. Məni \"{title}\"-ə əlavə etdiyiniz üçün təşəkkür edirəm. <b>Botun işləməsi üçün ona administrator hüquqları verilməlidir.</b>",
+		"00031": "👋 <b><i>Salam!</i></b> Məni \"{title}\"-a administrator kimi əlavə etdiyiniz üçün təşəkkür edirəm. <i><b>Bütün bot funksiyaları mövcuddur!</b></i> /help-də onlarla tanış ola bilərsiniz.",
+		"00032":  "<i><b>Indi bütün bot funksiyaları mövcuddur!</b></i> Onlarla /help-də tanış ola bilərsiniz.",
 		"cmd1": "Botun imkanlarını öyrənin",
 		"cmd2": "Dili dəyişdirin",
 		"cmd3": "Botu işə salın"
@@ -65,13 +68,16 @@
 		"00027": "⚠️ Видео весит больше 50 МБ",
 		"00028": "⚠️ Трансляции не поддерживаются",
 		"00029": "⚠️ Плейлисты не поддерживаются",
+		"00030": "👋 <b><i>Привет!</i></b> Спасибо, что добавили меня в \"{title}\". <b>Для работы бота, необходимо дать ему права администратора.</b>",
+		"00031": "👋 <b><i>Привет!</i></b> Спасибо, что добавили меня в \"{title}\" как администратора. <i><b>Все функции бота доступны!</b></i> Ознакомиться с ними можете в /help.",
+		"00032": "<i><b>Теперь все функции бота доступны!</b></i> Ознакомиться с ними можете в /help.",
 		"cmd1": "Узнать возможности бота",
 		"cmd2": "Поменять язык",
 		"cmd3": "Запустить бота"
 	},
 	"en": {
 		"name": "🇬🇧 English",
-		"00001": "Hi, friend! My name is Энди and I will help you get data from various social networks. Just send me a link to a post or profile from available social networks.",
+		"00001": "Hi, friend! My name is Andy and I will help you get data from various social networks. Just send me a link to a post or profile from available social networks.",
 		"00002": "<i>Language changed successfully.</i>",
 		"00003": "🖼 Cover",
 		"00004": "🔄 GIF Cover",
@@ -100,6 +106,9 @@
 		"00027": "⚠️ The video weighs more than 50 MB",
 		"00028": "⚠️ Broadcasts are not supported",
 		"00029": "⚠️ Playlists are not supported",
+		"00030": "👋 <b><i>Hello!</i></b> Thank you for adding me to \"{title}\". <b>For the bot to work, you must give it administrator rights.</b>",
+		"00031": "👋 <b><i>Hello!</i></b> Thank you for adding me to \"{title}\" as an administrator. <i><b>All bot functions are available!</b></i> You can find them in /help.",
+		"00032": "<i><b>Now all bot functions are available!</b></i> You can find them in /help.",
 		"cmd1": "Find out the bot's capabilities",
 		"cmd2": "Change language",
 		"cmd3": "Launch bot"

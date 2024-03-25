@@ -7,8 +7,6 @@ from utils.db import tiktok
 from locales.translations import _
 from utils.locales import locales_dict
 
-
-
 class Video:
     def __init__(self, data) -> None:
         self.id = data["id"]
@@ -47,11 +45,11 @@ class Video:
 
             cookies = {"tt_chain_token": self.parent.tt_chain_token}
             headers = {"referer": "https://www.tiktok.com/"}
-            self.size = int(response.headers.get("Content-Length", 0))
-            if self.size > 48000000:
-                return False
             async with httpx.AsyncClient() as client:
                 response = await client.get(link, cookies=cookies, headers=headers)
+                self.size = int(response.headers.get("Content-Length", 0))
+                if self.size > 48000000:
+                    return False
                 async with aiofiles.open(self.parent.path, "wb") as f:
                     await f.write(response.content)
             self.file_id = FSInputFile(self.parent.path, self.parent.user.unique_name)
@@ -68,6 +66,17 @@ class Video:
 
         return f'👤 <a href="{self.parent.link}">{self.parent.user.unique_name}</a>\n\n{self.desc}'
     
+    async def create_caption_for_group(self, user):
+        await self.set_time()
+
+        if self.desc != "":
+            self.desc = f"📝 {self.desc}"
+        if len(self.desc) > 870:
+            self.second_desc = self.desc[870:]
+            self.desc = self.desc[:870]
+
+        return f'👤 {user}\n\n🔗 <a href="{self.parent.link}">{self.parent.user.unique_name}</a>'
+    
     async def crate_keyboard(self):
         lang = locales_dict[self.parent.message.chat.id]
         keyboard = InlineKeyboardMarkup(
@@ -81,6 +90,15 @@ class Video:
                     InlineKeyboardButton(text=await _("00013", lang), callback_data=f"stats=={self.id}"),
                     InlineKeyboardButton(text=await _("00012", lang), callback_data=f"profile=={self.parent.tt_chain_token}")
                 ],
+                [InlineKeyboardButton(text=await _("00021", lang), callback_data=f"comments=={self.id}")]
+            ]
+        )
+        return keyboard
+    
+    async def crate_keyboard_for_group(self):
+        lang = locales_dict[self.parent.message.chat.id]
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
                 [InlineKeyboardButton(text=await _("00021", lang), callback_data=f"comments=={self.id}")]
             ]
         )

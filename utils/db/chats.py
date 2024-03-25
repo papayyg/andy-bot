@@ -19,6 +19,13 @@ async def change_language(chat_id: int, new_language: str):
 async def chat_exists(chat_id: int):
     return await chats.find_one({"_id": chat_id})
 
+async def change_status(chat_id):
+    chat = await chats.find_one({"_id": chat_id})
+    if chat:
+        current_status = chat.get("is_blocked", False)
+        new_status = not current_status
+        await chats.update_one({"_id": chat_id}, {"$set": {"is_blocked": new_status}})
+
 async def get_locals():
     projection = {"_id": 1, "lang": 1}
     chats_local = await chats.find({}, projection).to_list(None)

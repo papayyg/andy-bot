@@ -31,4 +31,4 @@ async def set_commands_for_all_chats(bot):
         try:
             await set_commands(bot, chat_id, lang)
         except Exception as ex:
-            print(f'Error in commands_set: {ex}')
+            pass

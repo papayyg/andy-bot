@@ -1,1 +1,1 @@
-from . import slides, video, music, user
+from . import slides, video, music, user, challenge

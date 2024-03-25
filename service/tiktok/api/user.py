@@ -35,7 +35,7 @@ class User:
         link = f'➡️ tiktok.com/@{self.unique_name}'
         titke = f'👤 <b>{self.name}</b>\n{link}'
         desc = f'\n\n{self.signature}' if self.signature != '' else ''
-        bio_link = f'\n\n🔗 {self.bio_links}' if self.bio_links else ''
+        bio_link = f'\n\n🔗 {self.bio_links["link"]}' if self.bio_links else ''
         
         follower = f'<i>{await _("00007", lang)} - {await User.readable_number(self.stats["followerCount"])}</i>'
         following = f'<i>{await _("00008", lang)} - {await User.readable_number(self.stats["followingCount"])}</i>'
@@ -44,6 +44,14 @@ class User:
         stats = f'\n\n🔎 <u>{await _("00011", lang)}:</u>\n{follower}\n{following}\n{heart}\n{video}'
 
         return f'{titke}{desc}{bio_link}{stats}'
+    
+    async def create_caption_for_group(self, user):
+        link = f'https://www.tiktok.com/@{self.unique_name}'
+        titke = f'🔗 <a href="{link}">{self.name}</a>'
+        desc = f'\n\n{self.signature}' if self.signature != '' else ''
+        bio_link = f'\n{self.bio_links["link"]}' if self.bio_links else ''
+
+        return f'👤 {user}\n\n{titke}{desc}{bio_link}'
 
     async def readable_number(number):
         number_str = str(number)

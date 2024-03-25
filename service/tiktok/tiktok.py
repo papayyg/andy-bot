@@ -122,7 +122,7 @@ class TikTokAPI:
             self.user = User(self.data["user"])
             self.user.parent = self
             self.user.stats = self.data["stats"]
-            self.bio_links = self.data["user"].get("bioLink")
+            self.user.bio_links = self.data["user"].get("bioLink")
         else:
             if not self.type:
                 if not self.mobile:
@@ -178,14 +178,16 @@ class TikTokAPI:
             self.download_link = soup.find('a', class_='without_watermark').get('href')
             self.author = soup.find('h2').text
 
-    async def ssstik_download(self):
+    async def ssstik_download(self, user = False):
         self.path += "/video.mp4"
         async with httpx.AsyncClient() as client:
             response = await client.get(self.download_link)
             async with aiofiles.open(self.path, "wb") as f:
                 await f.write(response.content)
-
-        caption = f'👤 <a href="{self.link}">{self.author}</a>'
+        if not user:
+            caption = f'👤 <a href="{self.link}">{self.author}</a>'
+        else:
+            caption = f'👤 {user}\n\n🔗 <a href="{self.link}">{self.author}</a>'
         return FSInputFile(self.path, self.author), caption
         
 

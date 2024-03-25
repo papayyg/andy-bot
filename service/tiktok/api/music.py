@@ -33,11 +33,25 @@ class Music:
                 self.thumbnail = BufferedInputFile(response.content, 'thumbnail')
         return self.file_id
     
-    async def get_caption(self, lang):
+    async def create_caption(self, lang):
         author = f'👤 <a href="{self.parent.link}">{self.author}</a>'
-        text = f'{author}\n<i>{await _("00024", lang)}</i>: <b>{self.stats}</b>'
+        text = f'{author}\n<i>{await _("00024", lang)}</i>: <b>{await Music.readable_number(self.stats)}</b>'
         return text
     
+    async def create_caption_for_group(self, lang, user):
+        author = f'🔗 <a href="{self.parent.link}">{self.author}</a>'
+        text = f'👤 {user}\n\n{author}\n<i>{await _("00024", lang)}</i>: <b>{await Music.readable_number(self.stats)}</b>'
+        return text
+    
+    async def readable_number(number):
+        number_str = str(number)
+        groups = []
+        while number_str:
+            groups.append(number_str[-3:])
+            number_str = number_str[:-3]
+        return ' '.join(reversed(groups))
+    
+
     async def check_id(self):
         r = await tiktok.music_exists(self.id)
         if r:

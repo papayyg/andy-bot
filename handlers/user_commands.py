@@ -1,6 +1,7 @@
-from aiogram import Bot, Router
-from aiogram.types import Message, CallbackQuery
+from aiogram import Bot, Router, F
+from aiogram.types import Message, CallbackQuery, ChatMemberUpdated
 from aiogram.filters import CommandStart, Command
+from aiogram.filters.chat_member_updated import ChatMemberUpdatedFilter, MEMBER, KICKED
 from aiogram.fsm.context import FSMContext
 
 from utils.db import chats
@@ -12,16 +13,23 @@ from locales.translations import _
 
 router = Router()
 
+@router.my_chat_member(F.chat.type.in_({"private"}), ChatMemberUpdatedFilter(member_status_changed=KICKED))
+@router.my_chat_member(F.chat.type.in_({"private"}), ChatMemberUpdatedFilter(member_status_changed=MEMBER))
+async def user_blocked_bot(event: ChatMemberUpdated):
+    await chats.change_status(event.from_user.id)
+
+
 @router.message(Lang.lang)
 async def cancel_action(message: Message):
-    await message.answer("Select your language first!")
+    if not message.new_chat_members:
+        await message.answer("Select your language first!")
     
 
 @router.message(CommandStart())
 async def start(message: Message, state: FSMContext):
     if not await chats.chat_exists(message.chat.id):
         await state.set_state(Lang.lang)
-        return await message.answer('👋 <b><i>Hello!</i></b>\nSelect your language to continue:', reply_markup=langs_keyboard)
+        return await message.answer('Select your language to continue:', reply_markup=langs_keyboard)
 
     await message.answer(await _("00001", locales_dict[message.chat.id]) )
 
@@ -29,7 +37,7 @@ async def start(message: Message, state: FSMContext):
 @router.message(Command(commands=['lang']))
 async def start(message: Message, state: FSMContext):
     await state.set_state(Lang.lang)
-    await message.answer('👋 <b><i>Hello!</i></b>\nSelect your language to continue:', reply_markup=langs_keyboard)
+    await message.answer('Select your language to continue:', reply_markup=langs_keyboard)
 
 
 @router.callback_query(Lang.lang)
@@ -46,7 +54,7 @@ async def register_chat(call: CallbackQuery, state: FSMContext, bot: Bot):
         await chats.change_language(chat_id, lang)
         return await call.message.edit_text(await _("00002", lang))
     
-    await call.message.edit_text(await _("00001", lang))
+    
 
     if call.message.chat.type == 'private':
         chat_data = {
@@ -54,13 +62,20 @@ async def register_chat(call: CallbackQuery, state: FSMContext, bot: Bot):
             "first_name": call.message.chat.first_name,
             "last_name": call.message.chat.last_name,
             "type": 'private',
+            "is_blocked": False
         }
+        await call.message.edit_text(await _("00001", lang))
     else:
         chat_data = {
             "title": call.message.chat.title,
             "type": call.message.chat.type,
+            "is_blocked": False
         }
-
+        bot_chat_member = await bot.get_chat_member(chat_id, bot.id)
+        if bot_chat_member.status == "administrator":
+            await call.message.edit_text((await _("00031", lang)).format(title=call.message.chat.title))
+        else:
+            await call.message.edit_text((await _("00030", lang)).format(title=call.message.chat.title))
     chat_data["_id"] = chat_id
     chat_data["lang"] = lang
     await chats.save_chat_data(chat_data)

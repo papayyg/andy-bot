@@ -37,6 +37,9 @@ class Slides:
             self.desc = self.desc[:870]
 
         return f'👤 <a href="{self.parent.link}">{self.parent.user.unique_name}</a>\n\n{self.desc}'
+    
+    async def create_caption_for_group(self, user):
+        return f'👤 {user}\n\n🔗 <a href="{self.parent.link}">{self.parent.user.unique_name}</a>'
 
     async def check_slides_id(self):
         r = await tiktok.slides_exists(self.id)
@@ -44,9 +47,12 @@ class Slides:
             self.files_ids = r["files_ids"]
         return r
             
-    async def get_slides(self):
+    async def get_slides(self, user = False):
         groups = []
-        caption = await self.create_caption()
+        if not user:
+            caption = await self.create_caption()
+        else:
+            caption = await self.create_caption_for_group(user)
         media_group = MediaGroupBuilder(caption=caption)
         i = 0
         if not await self.check_slides_id():
@@ -111,6 +117,16 @@ class Slides:
         )
         return keyboard
     
+    async def crate_keyboard_for_group(self):
+        lang = locales_dict[self.parent.message.chat.id]
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text=await _("00023", lang), callback_data=f"makevideo=={self.id}")],
+                [InlineKeyboardButton(text=await _("00021", lang), callback_data=f"comments=={self.id}")]
+            ]
+        )
+        return keyboard
+    
     async def set_time(self):
         dt = datetime.fromtimestamp(int(self.create_time))
         self.create_time = dt.strftime("%H:%M - %d.%m.%y")
@@ -154,7 +170,6 @@ class Slides:
             audio = audio.subclip(0, final_duration)
             final_clip = final_clip.set_audio(audio)
 
-            # final_clip.write_videofile(f'temp/{unique_id}/video.mp4', fps=24, threads=6, codec='libx264', audio_codec='aac', logger= None)
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(None, Slides.write_video, final_clip, unique_id)
             video = FSInputFile(f'temp/{unique_id}/video.mp4', music["author"])

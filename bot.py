@@ -5,7 +5,7 @@ import sys
 from aiogram import Bot, Dispatcher
 from aiogram.client.bot import DefaultBotProperties
 from aiogram.enums import ParseMode
-from handlers import user_commands, tiktok
+from handlers import user_commands, tiktok, groups
 
 from config import BOT_TOKEN
 from utils.locales import get_chats_locales
@@ -16,7 +16,8 @@ async def main():
     dp = Dispatcher()
     dp.include_routers(
         user_commands.router,
-        tiktok.router
+        tiktok.router,
+        groups.router,
     )
     await get_chats_locales()
     await set_commands_for_all_chats(bot)

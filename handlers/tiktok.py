@@ -1,9 +1,7 @@
 import shutil
-import asyncio
 from aiogram import Bot
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
-from aiogram.utils.media_group import MediaGroupBuilder
 
 from service.tiktok.tiktok import TikTokAPI
 from keyboards.inline import commnet_keyboard
@@ -18,6 +16,68 @@ async def get_audio(api, message, keyboard=None):
     api.music.file_id = r.audio.file_id
     await api.music.save()
     
+@router.message(F.chat.type.in_({"group", "supergroup"}), F.text.contains('tiktok.com/'))
+async def tiktok_message_group(message: Message):
+    lang = locales_dict[message.chat.id]
+    new_video = None
+    user = message.from_user.mention_html()
+    async with TikTokAPI(message) as api:
+        if api.type == 'video':
+            video = await api.video.download(api.video.download_link)
+            if video == False:
+                return await message.answer(await _("00027", lang))
+            caption = await api.video.create_caption_for_group(user)
+            keyboard = await api.video.crate_keyboard_for_group()
+            new_video = await message.answer_video(video, api.video.duration, api.video.width, api.video.height, caption=caption)
+            api.video.file_id = new_video.video.file_id
+            await api.video.save()
+
+        elif api.type == 'profile':
+            photo = await api.user.download_cover()
+            caption = await api.user.create_caption_for_group(user)
+            await message.answer_photo(photo, caption=caption)
+        
+        elif api.type == 'slides':
+            groups = await api.slides.get_slides(user)
+            keyboard = await api.slides.crate_keyboard_for_group()
+            for media_group in groups:
+                photos = await message.answer_media_group(media_group.build())
+                for photo in photos:
+                    api.slides.files_ids.append(photo.photo[-1].file_id)
+            await api.slides.save()
+
+            await get_audio(api, message, keyboard)
+            
+        elif api.type == 'music':
+            photo = await api.user.download_cover()
+            caption = await api.music.create_caption_for_group(lang, user)
+            await message.answer_photo(photo, caption=caption, disable_web_page_preview=True)
+            await get_audio(api, message)
+
+        elif api.type == "challenge":
+            caption = await api.challenge.create_caption_for_group(lang, user)
+            text = await message.answer(caption, disable_web_page_preview=True)
+            video = await api.video.download(api.video.download_link)
+            caption = await api.video.create_caption_for_group(user)
+            keyboard = None
+            new_video = await text.reply_video(video, api.video.duration, api.video.width, api.video.height, caption=caption)
+            api.video.file_id = new_video.video.file_id 
+            await api.video.save()
+            
+        elif api.type == "stories":
+            video, caption = await api.ssstik_download(user)
+            await message.answer_video(video, caption=caption)
+
+        elif api.type == "live":
+            return
+
+        elif api.type == "playlist":
+            return
+            
+        await message.delete()
+    
+    if new_video and keyboard:
+        await new_video.edit_reply_markup(reply_markup=keyboard)
 
 @router.message(F.text.contains('tiktok.com/'))
 async def tiktok_message(message: Message):
@@ -56,16 +116,17 @@ async def tiktok_message(message: Message):
             
         elif api.type == 'music':
             photo = await api.user.download_cover()
-            caption = await api.music.get_caption(lang)
+            caption = await api.music.create_caption(lang)
             await message.answer_photo(photo, caption=caption, disable_web_page_preview=True)
             await get_audio(api, message)
 
         elif api.type == "challenge":
             caption = await api.challenge.create_caption(lang)
-            await message.answer(caption, disable_web_page_preview=True)
+            text = await message.answer(caption, disable_web_page_preview=True)
             video = await api.video.download(api.video.download_link)
             caption = await api.video.create_caption()
-            new_video = await message.answer_video(video, api.video.duration, api.video.width, api.video.height, caption=caption)
+            keyboard = None
+            new_video = await text.reply_video(video, api.video.duration, api.video.width, api.video.height, caption=caption)
             api.video.file_id = new_video.video.file_id 
             await api.video.save()
             
@@ -84,7 +145,7 @@ async def tiktok_message(message: Message):
             
         await message.delete()
     
-    if new_video and new_video.reply_markup:
+    if new_video and keyboard:
         await new_video.edit_reply_markup(reply_markup=keyboard)
     await ff.delete()
 
