@@ -43,7 +43,7 @@ async def start(message: Message, state: FSMContext):
 @router.callback_query(Lang.lang)
 async def register_chat(call: CallbackQuery, state: FSMContext, bot: Bot):
     await state.clear()
-
+    await call.answer()
     lang = call.data
     chat_id = call.message.chat.id
     locales_dict[chat_id] = lang
