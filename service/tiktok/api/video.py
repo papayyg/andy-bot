@@ -144,15 +144,18 @@ class Video:
             comments = (response.json())["comments"]
         text = ""
         i = 0
-        for comment in comments:
-            if i < count:
-                point = f'<b>></b><a href="{comment["share_info"]["url"]}">{comment["user"]["nickname"]}</a>\n{comment["text"]}\n\n'
-                if len(point) > 300:
-                    continue
-                text += point
-                i += 1
-            else:
-                break
+        if comments:
+            for comment in comments:
+                if i < count:
+                    point = f'<b>></b><a href="{comment["share_info"]["url"]}">{comment["user"]["nickname"]}</a>\n{comment["text"]}\n\n'
+                    if len(point) > 300:
+                        continue
+                    text += point
+                    i += 1
+                else:
+                    break
+        else:
+            text = ''
         return text
 
     async def save(self):

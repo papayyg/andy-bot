@@ -51,3 +51,14 @@ async def commnet_keyboard(chat_id, video_id):
         ]
     )
     return keyboard
+
+async def inst_commnet_keyboard(chat_id, video_id):
+    lang = locales_dict[chat_id]
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text=await _("00022", lang), callback_data=f"inst_more_comments=={video_id}"),
+            ],
+        ]
+    )
+    return keyboard

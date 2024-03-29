@@ -89,4 +89,6 @@ Bot supports multilingual capabilities. To add support for additional languages,
 
 [MIT](https://choosealicense.com/licenses/mit/)
 
+## Author
+Aslan Mammadrzayev - aslan.mamedrzaev@gmail.com
 

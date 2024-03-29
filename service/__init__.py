@@ -1,1 +1,1 @@
-from .tiktok import tiktok
+from . import tiktok, instagram

@@ -159,6 +159,7 @@ async def watermark_handler(call: CallbackQuery):
     keyboard = call.message.reply_markup
     del keyboard.inline_keyboard[1]
     await call.message.edit_reply_markup(reply_markup=keyboard)
+    await call.answer()
 
 @router.callback_query(F.data.startswith('stats'))
 async def stats_handler(call: CallbackQuery):
@@ -204,21 +205,28 @@ async def profile_handler(call: CallbackQuery):
     keyboard = call.message.reply_markup
     del keyboard.inline_keyboard[-2][-1]
     await call.message.edit_reply_markup(reply_markup=keyboard)
+    await call.answer()
     
 @router.callback_query(F.data.startswith('comments'))
 async def comments_handler(call: CallbackQuery):
+    lang = locales_dict[call.message.chat.id]
     id = call.data.split('==')[1]
     text = await TikTokAPI.video.get_comments(id, 5)
     
-    new_keyboard = await commnet_keyboard(call.message.chat.id, id)
-    await call.message.reply(text, disable_web_page_preview=True, reply_markup=new_keyboard)
+    if text:
+        new_keyboard = await commnet_keyboard(call.message.chat.id, id)
+        await call.message.reply(text, disable_web_page_preview=True, reply_markup=new_keyboard)
+    else:
+        await call.answer(await _("00034", lang))
 
     keyboard = call.message.reply_markup
     del keyboard.inline_keyboard[-1]
     await call.message.edit_reply_markup(reply_markup=keyboard)
+    await call.answer()
 
 @router.callback_query(F.data.startswith('more_comments'))
 async def more_comments_handler(call: CallbackQuery):
     id = call.data.split('==')[1]
     text = await TikTokAPI.video.get_comments(id, 10)
     await call.message.edit_text(text, disable_web_page_preview=True)
+    await call.answer()
