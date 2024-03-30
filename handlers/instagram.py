@@ -41,20 +41,26 @@ async def tiktok_message(message: Message):
             caption = await api.user.create_caption(lang)
             api.file_id = (await message.answer_photo(avatar, caption=caption)).photo[-1].file_id
 
-        elif api.type == 'stories-image':
+        elif api.type in ['stories-image', 'highlights-image']:
             image = await api.stories.download()
             caption = await api.stories.create_caption(lang)
             keyboard = await api.stories.crate_keyboard()
             api.file_id = (await message.answer_photo(image, caption=caption, reply_markup=keyboard)).photo[-1].file_id
 
-        elif api.type == 'stories-video':
+        elif api.type in ['stories-video', 'highlights-video']:
             video, width, height, duration = await api.stories.download()
             if not video:
                 return await message.answer(await _("00027", lang))
             caption = await api.stories.create_caption(lang)
             keyboard = await api.stories.crate_keyboard()
             api.file_id = (await message.answer_video(video, caption=caption, width=width, height=height, reply_markup=keyboard, duration=duration)).video.file_id
-
+        
+        elif api.type == 'audio':
+            audio, duration = await api.audio.download()
+            cover, performer, title = await api.audio.get_cover()
+            caption = await api.audio.create_caption()
+            api.file_id = (await message.answer_audio(audio, caption=caption, duration=duration, thumbnail=cover, performer=performer, title=title)).audio.file_id
+            
         await message.delete()
     await ff.delete()
 

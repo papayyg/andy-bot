@@ -1,13 +1,16 @@
 import shutil
 import os
+import re
 import uuid
 import httpx
 import json
+import base64
 from bs4 import BeautifulSoup
 
 from .api.user import User
 from .api.post import Post
 from .api.stories import Stories
+from .api.music import Music
 from config import INST_SESSION
 from utils.db import instagram
 from locales.translations import _
@@ -27,6 +30,7 @@ class InstagramAPI:
         self.text = message.text
         self.path = f'temp/{self.unique_id}'
         self.link = None
+        self.main_link = None
         self.data = None
         self.type = None
         self.create_time = None
@@ -43,7 +47,7 @@ class InstagramAPI:
 
     async def __aexit__(self, exc_type, exc, tb):
         shutil.rmtree(f'temp/{self.unique_id}')
-        if self.type in ['carousel', 'video', 'image', 'stories-video', 'stories-image']:
+        if self.type in ['carousel', 'video', 'image', 'stories-video', 'stories-image', 'highlights-video', 'highlights-image', 'audio']:
             await self.save()
 
     async def get_profile(pk, lang):
@@ -63,7 +67,7 @@ class InstagramAPI:
         if result:
             self.data = result["data"]
             self.file_id = result["file_id"]
-
+            
     async def extract_instagram_link(self):
         start_index = self.text.find("instagram.com")
         
@@ -77,21 +81,26 @@ class InstagramAPI:
         final_str = self.text[left_space_index:right_space_index].strip()
         if not final_str.startswith('https://'):
             final_str = f'https://{final_str}'
-        if '?' in final_str:
+        if '?' in final_str and '/s/' not in final_str:
             final_str = final_str.split('?')[0]
 
         self.link = final_str
     
     async def get_type(self):
-        if '/p/' in self.link:
+        if '/p/' in self.link or '/reel/' in self.link:
             self.post = Post(self.link)
             self.post.parent = self
             await self.post.get_data(self.data)
         elif '/audio/' in self.link:
             self.type = 'audio'
-        elif '/reel/' in self.link:
-            self.type = 'reel'
-        elif '/s/' in self.link or '/stories/' in self.link:
+            self.audio = Music(self.link)
+            self.audio.parent = self
+            await self.audio.get_music_id()
+            await self.audio.get_data(self.data)
+        elif '/stories/' in self.link or '/s/' in self.link:
+            self.main_link = self.link
+            if '/s/' in self.link:
+                await self.decode_highlights_id()
             self.stories = Stories(self.link)
             self.stories.parent = self
             await self.stories.get_data(self.data)
@@ -106,6 +115,15 @@ class InstagramAPI:
             await self.user.extract_profile_name()
             await self.user.get_data()
 
+    async def decode_highlights_id(self):
+        pattern = r'story_media_id=(\d+)'
+        match = re.search(pattern, self.link)
+        if match:
+            self.pk = match.group(1)
+        code = self.link.split("/s/")[1].split("?")[0]
+        highlights_id = base64.b64decode(code).decode('utf-8').split(":")[1]
+        self.link = f'https://www.instagram.com/stories/highlights/{highlights_id}/'
+    
     async def readable_number(number):
         number_str = str(number)
         groups = []
@@ -151,7 +169,7 @@ class InstagramAPI:
     
     async def save(self):
         data = {
-            "_id": self.link,
+            "_id": self.main_link or self.link,
             "pk": self.data["pk"],
             "file_id": self.file_id,
             "data": self.data,

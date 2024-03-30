@@ -4,8 +4,7 @@ import aiofiles
 import json
 from datetime import datetime
 from bs4 import BeautifulSoup
-from aiogram.types import FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup, BufferedInputFile
-from aiogram.utils.media_group import MediaGroupBuilder
+from aiogram.types import FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup
 
 from .user import User
 from locales.translations import _
@@ -22,6 +21,7 @@ class Stories:
         self.pk = None
         self.link = link
         self.parent = None
+        self.title = None
         
         self.headers = headers
 
@@ -33,23 +33,46 @@ class Stories:
                 script_tags = soup.find_all('script')
                 target_script = None
                 for script_tag in script_tags:
-                    if 'xdt_api__v1__feed__reels_media' in str(script_tag):
+                    if 'xdt_api__v1__feed__reels_media__connection' in str(script_tag):
                         target_script = script_tag.string
+                        self.parent.type = 'highlights'
                         break
-            self.parent.data = json.loads(target_script)["require"][0][3][0]["__bbox"]["require"][0][3][1]["__bbox"]["result"]["data"]["xdt_api__v1__feed__reels_media"]["reels_media"][0]
-            
+                    elif 'xdt_api__v1__feed__reels_media' in str(script_tag):
+                        target_script = script_tag.string
+                        self.parent.type = 'stories'
+                        break
+            temp_data = json.loads(target_script)["require"][0][3][0]["__bbox"]["require"][0][3][1]["__bbox"]["result"]["data"]
+            if self.parent.type == 'stories':
+                self.parent.data = temp_data["xdt_api__v1__feed__reels_media"]["reels_media"][0]
+            elif self.parent.type == 'highlights':
+                self.parent.data = temp_data["xdt_api__v1__feed__reels_media__connection"]["edges"][0]["node"]
+        else:
+            if 'highlight' in self.parent.data["id"]:
+                self.parent.type = 'highlights'
+            else:
+                self.parent.type = 'stories'
         self.parent.user = User(self.parent.data["user"])
-        for story in self.parent.data["items"]:
-            if story["pk"] in self.parent.link:
-                self.parent.temp = story
-                self.parent.data["pk"] = story["pk"]
-                if not data: await self.set_time()
-                break
+        if 'highlights' in self.parent.type:
+            if hasattr(self.parent, 'pk') and self.parent.pk:
+                for story in self.parent.data["items"]:
+                    if story["pk"] == self.parent.pk:
+                        self.parent.temp = story
+                        break
+            else:
+                self.parent.temp = self.parent.data["items"][0]
+                self.title = self.parent.data["title"]
+        elif 'stories' in self.parent.type:
+            for story in self.parent.data["items"]:
+                if story["pk"] in self.parent.link:
+                    self.parent.temp = story
+                    break
+        self.parent.data["pk"] = self.parent.temp["pk"]
+        if not data: await self.set_time()
         self.pk = self.parent.temp["pk"]
         if self.parent.temp['video_versions']:
-            self.parent.type = 'stories-video'
+            self.parent.type += '-video'
         else:
-            self.parent.type = 'stories-image'
+            self.parent.type += '-image'
 
     async def crate_keyboard(self):
         lang = locales_dict[self.parent.message.chat.id]
@@ -67,11 +90,11 @@ class Stories:
         self.parent.temp["taken_at"] = dt.strftime("%H:%M - %d.%m.%y")
 
     async def create_caption(self, lang):
-        return f'👤 <a href="{self.parent.link}">{self.parent.user.username}</a>\n\n🕣 {await _("00035", lang)}: <b><i>{self.parent.temp["taken_at"]}</i></b>'
+        return f'👤 <a href="{self.parent.main_link}">{self.parent.user.username}</a>\n<b>{self.title if self.title else ""}</b>\n🕣 {await _("00035", lang)}: <b><i>{self.parent.temp["taken_at"]}</i></b>'
 
     async def download(self):
         async with httpx.AsyncClient() as client:
-            if self.parent.type == 'image':
+            if 'image' in self.parent.type:
                 if not self.parent.file_id:
                     self.parent.path += "/image.jpg"
                     image_link = self.parent.temp["image_versions2"]["candidates"][0]["url"]
