@@ -11,6 +11,8 @@ from .api.user import User
 from .api.post import Post
 from .api.stories import Stories
 from .api.music import Music
+from .api.locations import Locations
+from .api.tags import Tags
 from config import INST_SESSION
 from utils.db import instagram
 from locales.translations import _
@@ -47,7 +49,7 @@ class InstagramAPI:
 
     async def __aexit__(self, exc_type, exc, tb):
         shutil.rmtree(f'temp/{self.unique_id}')
-        if self.type in ['carousel', 'video', 'image', 'stories-video', 'stories-image', 'highlights-video', 'highlights-image', 'audio']:
+        if self.type in ['carousel', 'video', 'image', 'stories-video', 'stories-image', 'highlights-video', 'highlights-image', 'audio', 'locations', 'tags']:
             await self.save()
 
     async def get_profile(pk, lang):
@@ -106,8 +108,14 @@ class InstagramAPI:
             await self.stories.get_data(self.data)
         elif '/tags/' in self.link:
             self.type = 'tags'
+            self.tags = Tags(self.link)
+            self.tags.parent = self
+            await self.tags.get_data(self.data)
         elif '/locations/' in self.link:
             self.type = 'locations'
+            self.locations = Locations(self.link)
+            self.locations.parent = self
+            await self.locations.get_data(self.data)
         else:
             self.type = 'profile'
             self.user = User({})

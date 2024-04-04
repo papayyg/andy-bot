@@ -1,1 +1,1 @@
-from . import user, post, stories, music
+from . import user, post, stories, music, locations, tags

@@ -61,6 +61,15 @@ async def tiktok_message(message: Message):
             caption = await api.audio.create_caption()
             api.file_id = (await message.answer_audio(audio, caption=caption, duration=duration, thumbnail=cover, performer=performer, title=title)).audio.file_id
             
+        elif api.type == 'locations':
+            caption = await api.locations.create_caption()
+            await message.answer(caption, disable_web_page_preview=True)
+
+        elif api.type == 'tags':
+            caption = await api.tags.create_caption(lang)
+            cover = await api.tags.get_cover()
+            await message.answer_photo(cover, caption, disable_web_page_preview=True)
+            
         await message.delete()
     await ff.delete()
 
