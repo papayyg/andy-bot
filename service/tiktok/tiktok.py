@@ -112,6 +112,9 @@ class TikTokAPI:
             pass
         
     async def get_type_content(self):
+        if self.link in ['https://www.tiktok.com/', 'https://www.tiktok.com', 'www.tiktok.com/', 'www.tiktok.com', 'tiktok.com/', 'tiktok.com']:
+            self.type = 'None'
+            return
         if self.type == 'video':
             self.video = Video(self.data)
             self.user = User(self.data["author"])

@@ -68,6 +68,18 @@ class User:
         text = f'{title}{desc}{links}{stats}'
         return text
 
+    async def create_group_caption(self, user):
+        link = f'➡️ instagram.com/{self.username}/'
+        category = f'\nℹ️ {self.category_name}' if self.category_name else ''
+        title = f'🆔 <b>{self.full_name}</b>{category}\n{link}'
+        desc = f'\n\n{self.biography}' if self.biography != '' else ''
+        links = ''
+        for link in self.bio_links:
+            links += f'\n▫️ {link["title"] + " - " if link["title"] else ""}{link["url"]}'
+
+        text = f'👤 {user}\n\n{title}{desc}{links}'
+        return text
+
     async def readable_number(self, number):
         number_str = str(number)
         groups = []

@@ -10,6 +10,72 @@ from utils.locales import locales_dict
 
 router = Router()
 
+@router.message(F.chat.type.in_({"group", "supergroup"}), F.text.contains('instagram.com/'))
+async def tiktok_message(message: Message):
+    ff = await message.answer(await _('00006', locales_dict[message.chat.id]))
+    lang = locales_dict[message.chat.id]
+    user = message.from_user.mention_html()
+    async with InstagramAPI(message) as api:
+        if api.type == 'image':
+            image = await api.post.download()
+            caption = await api.post.create_group_caption(user)
+            keyboard = await api.post.crate_group_keyboard()
+            api.file_id = (await message.answer_photo(image, caption=caption, reply_markup=keyboard)).photo[-1].file_id
+
+        elif api.type == 'carousel':
+            groups = await api.post.download(user)
+            api.file_id = []
+            for media_group in groups:
+                carousel = await message.answer_media_group(media_group.build())
+                for image in carousel:
+                    try:
+                        api.file_id.append(['p', image.photo[-1].file_id])
+                    except:
+                        api.file_id.append(['v', image.video.file_id])
+
+        elif api.type == 'video':
+            video, width, height = await api.post.download()
+            if not video:
+                return await message.answer(await _("00027", lang))
+            caption = await api.post.create_group_caption(user)
+            keyboard = await api.post.crate_group_keyboard()
+            api.file_id = (await message.answer_video(video, caption=caption, width=width, height=height, reply_markup=keyboard)).video.file_id
+
+        elif api.type == 'profile':
+            avatar = await api.user.get_avatar()
+            caption = await api.user.create_group_caption(user)
+            api.file_id = (await message.answer_photo(avatar, caption=caption)).photo[-1].file_id
+
+        elif api.type in ['stories-image', 'highlights-image']:
+            image = await api.stories.download()
+            caption = await api.stories.create_group_caption(lang, user)
+            api.file_id = (await message.answer_photo(image, caption=caption)).photo[-1].file_id
+
+        elif api.type in ['stories-video', 'highlights-video']:
+            video, width, height, duration = await api.stories.download()
+            if not video:
+                return await message.answer(await _("00027", lang))
+            caption = await api.stories.create_group_caption(lang, user)
+            api.file_id = (await message.answer_video(video, caption=caption, width=width, height=height, duration=duration)).video.file_id
+        
+        elif api.type == 'audio':
+            audio, duration = await api.audio.download()
+            cover, performer, title = await api.audio.get_cover()
+            caption = await api.audio.create_group_caption(user)
+            api.file_id = (await message.answer_audio(audio, caption=caption, duration=duration, thumbnail=cover, performer=performer, title=title)).audio.file_id
+            
+        elif api.type == 'locations':
+            caption = await api.locations.create_group_caption(user)
+            await message.answer(caption, disable_web_page_preview=True)
+
+        elif api.type == 'tags':
+            caption = await api.tags.create_group_caption(lang, user)
+            cover = await api.tags.get_cover()
+            await message.answer_photo(cover, caption, disable_web_page_preview=True)
+            
+        await message.delete()
+    await ff.delete()
+
 @router.message(F.text.contains('instagram.com/'))
 async def tiktok_message(message: Message):
     ff = await message.answer(await _('00006', locales_dict[message.chat.id]))
@@ -27,7 +93,10 @@ async def tiktok_message(message: Message):
             for media_group in groups:
                 carousel = await message.answer_media_group(media_group.build())
                 for image in carousel:
-                    api.file_id.append(image.photo[-1].file_id)
+                    try:
+                        api.file_id.append(['p', image.photo[-1].file_id])
+                    except:
+                        api.file_id.append(['v', image.video.file_id])
         elif api.type == 'video':
             video, width, height = await api.post.download()
             if not video:

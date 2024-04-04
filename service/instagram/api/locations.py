@@ -41,4 +41,7 @@ class Locations:
         self.parent.data["pk"] = self.pk
     
     async def create_caption(self):
-        return f'<u><b>Instagram Location</b></u>\n🗺 <a href="{self.parent.link}">{self.name}</a>\n{self.category}\n📍 <a href="{self.google_link}">Google Link</a>'
+        return f'<u><b>Instagram Location</b></u>\n🗺 <a href="{self.parent.link}">{self.name}</a> - {self.category}\n📍 <a href="{self.google_link}">Google Link</a>'
+
+    async def create_group_caption(self, user):
+        return f'👤 {user}\n\n<u><b>Instagram Location</b></u>\n🗺 <a href="{self.parent.link}">{self.name}</a>\n{self.category}\n📍 <a href="{self.google_link}">Google Link</a>'

@@ -116,6 +116,9 @@ class InstagramAPI:
             self.locations = Locations(self.link)
             self.locations.parent = self
             await self.locations.get_data(self.data)
+        elif self.link in ["https://www.instagram.com/", "https://www.instagram.com", "www.instagram.com/", "www.instagram.com", "instagram.com", "instagram.com/"]:
+            self.type = 'None'
+            return
         else:
             self.type = 'profile'
             self.user = User({})

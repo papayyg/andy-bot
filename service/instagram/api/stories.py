@@ -92,6 +92,9 @@ class Stories:
     async def create_caption(self, lang):
         return f'👤 <a href="{self.parent.main_link}">{self.parent.user.username}</a>\n<b>{self.title if self.title else ""}</b>\n🕣 {await _("00035", lang)}: <b><i>{self.parent.temp["taken_at"]}</i></b>'
 
+    async def create_group_caption(self, lang, user):
+        return f'👤 {user}\n\n🔗 <a href="{self.parent.main_link}">{self.parent.user.username}</a>'
+
     async def download(self):
         async with httpx.AsyncClient() as client:
             if 'image' in self.parent.type:

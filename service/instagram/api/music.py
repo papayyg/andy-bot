@@ -53,6 +53,9 @@ class Music:
     
     async def create_caption(self):
         return f'👤 <a href="{self.parent.link}">{self.for_caption}</a>'
+    
+    async def create_group_caption(self, user):
+        return f'👤 {user}\n\n🔗 <a href="{self.parent.link}">{self.for_caption}</a>'
 
     async def get_cover(self):
         async with httpx.AsyncClient() as client:

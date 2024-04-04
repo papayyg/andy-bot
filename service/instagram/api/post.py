@@ -54,6 +54,15 @@ class Post:
             ]
         )
         return keyboard
+
+    async def crate_group_keyboard(self):
+        lang = locales_dict[self.parent.message.chat.id]
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text=await _("00021", lang), callback_data=f"inst_comments=={self.pk}")]
+            ]
+        )
+        return keyboard
     
     async def set_time(self):
         dt = datetime.fromtimestamp(int(self.parent.data["taken_at"]))
@@ -67,8 +76,11 @@ class Post:
             self.desc = self.desc[:870]
 
         return f'👤 <a href="{self.parent.link}">{self.parent.user.username}</a>\n\n{self.desc}'
+    
+    async def create_group_caption(self, user):
+        return f'👤 {user}\n\n🔗 <a href="{self.parent.link}">{self.parent.user.username}</a>'
 
-    async def download(self):
+    async def download(self, user = None):
         async with httpx.AsyncClient() as client:
             if self.parent.type == 'image':
                 if not self.parent.file_id:
@@ -84,7 +96,10 @@ class Post:
                     return self.parent.file_id
             elif self.parent.type == 'carousel':
                 groups = []
-                caption = await self.create_caption()
+                if user:
+                    caption = await self.create_group_caption(user)
+                else:
+                    caption = await self.create_caption()
                 media_group = MediaGroupBuilder(caption=caption)
                 i = 0
                 if not self.parent.file_id:
@@ -112,8 +127,9 @@ class Post:
                             groups.append(media_group)
                             media_group = MediaGroupBuilder(caption=caption)
                 else:
-                    for image in self.parent.file_id:
-                        media_group.add_photo(image)
+                    for arr in self.parent.file_id:
+                        media_type = 'photo' if arr[0] == 'p' else 'video'
+                        media_group.add(type=media_type, media=arr[1])
                         i += 1
                         if i % 10 == 0:
                             media_group.caption = None

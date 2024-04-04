@@ -51,6 +51,9 @@ class Tags:
     async def create_caption(self, lang):
         return f'<u><b>Instagram Tag</b></u>\n🔗 <a href="{self.parent.link}">{self.name}</a>\n📈 {await _("00033", lang)}: {await self.readable_number(self.count)}'
 
+    async def create_group_caption(self, lang, user):
+        return f'👤 {user}\n\n<u><b>Instagram Tag</b></u>\n🔗 <a href="{self.parent.link}">{self.name}</a>\n📈 {await _("00033", lang)}: {await self.readable_number(self.count)}'
+
     async def get_cover(self):
         async with httpx.AsyncClient() as client:
             response = await client.get(self.cover, cookies=self.parent.cookies)
