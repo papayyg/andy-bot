@@ -32,6 +32,12 @@ async def start(message: Message, state: FSMContext):
         return await message.answer('Select your language to continue:', reply_markup=langs_keyboard)
 
     await message.answer(await _("00001", locales_dict[message.chat.id]) )
+    
+
+@router.message(Command(commands=['help']))
+async def help(message: Message):
+    lang = locales_dict[message.chat.id]
+    await message.answer(await _("help", lang))
 
 
 @router.message(Command(commands=['lang']))

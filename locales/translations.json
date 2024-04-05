@@ -1,7 +1,7 @@
 {
 	"az": {
 		"name": "🇦🇿 Azərbaycan",
-		"00001": "Salam! Mənim adım Andydir və mən sizə müxtəlif sosial şəbəkələrdən məlumat əldə etməyə kömək edəcəyəm. Sadəcə mənə mövcud sosial şəbəkələrdən bir posta və ya profilə link göndərin.",
+		"00001": "👋 Salam! Mənim adım <i>Andy</i> və mən sizə müxtəlif sosial şəbəkələrdən məlumat əldə etməyə kömək edəcəyəm.\n\n🔗 <b>Sadəcə mənə mövcud sosial şəbəkələrdən bir kontente link göndərin.</b>\n\n📋 Onlarla buradan tanış ola bilərsiniz - /help",
 		"00002": "<i>Dil uğurla dəyişdirildi.</i>",
 		"00003": "🖼 Üzü",
 		"00004": "🔄 GIF Üzü",
@@ -38,11 +38,12 @@
 		"00035": "Nəşr tarixi",
 		"cmd1": "Botun imkanlarını öyrənin",
 		"cmd2": "Dili dəyişdirin",
-		"cmd3": "Botu işə salın"
+		"cmd3": "Botu işə salın",
+		"help": "✅ <i>“Scraping veb-saytlardan avtomatik məlumat toplamaq üsuludur.”</i>\n\nBot mövcud sosial şəbəkələrdən bütün məlumatları toplayır - <b>sadəcə istədiyiniz kontente link göndərin</b>.\n\n⬇️ Mövcud sosial şəbəkələr:\n\n<b>• TikTok</b>\n- videolar, slayd-şoular, profillər, musiqi, hashtaglar, hekayələr;\n\n<b>• Instagram</b>\n- videolar və fotolar, karusellər, reels, profillər, stories, highlights, musiqi, məkanlar, heşteqlər;\n\n🤝🏼 Bot qruplarda da əla işləyir. Telegramdan çıxmadan linkləri kontente çevirin."
 	},
 	"ru": {
 		"name": "🇷🇺 Русский",
-		"00001": "Привет, друг! Меня зовут Andy и я помогу вам получить данные из различных социальных сетей. Просто пришлите мне ссылку на пост или профиль из доступных социальных сетей.",
+		"00001": "👋 Привет, друг! Меня зовут <i>Andy</i> и я помогу вам получить данные из различных социальных сетей.\n\n🔗 <b>Просто пришлите ссылку на контент из доступных мне социальных сетей.</b>\n\n📋 Ознакомиться с ними можно здесь - /help",
 		"00002": "<i>Язык успешно изменен.</i>",
 		"00003": "🖼 Обложка",
 		"00004": "🔄 GIF Обложка",
@@ -79,11 +80,12 @@
 		"00035": "Дата публикации",
 		"cmd1": "Узнать возможности бота",
 		"cmd2": "Поменять язык",
-		"cmd3": "Запустить бота"
+		"cmd3": "Запустить бота",
+		"help": "✅ <i>“Скрапинг - это способ автоматического сбора информации с веб-сайтов.”</i>\n\nБот собирает всю информацию с доступных социальных сетей - <b>просто отправьте ссылку на нужный контент</b>.\n\n⬇️ Доступные социальные сети:\n\n<b>• TikTok</b>\n- видео, слайд-шоу, профили, музыка, хэштеги, сторисы;\n\n<b>• Instagram</b>\n- посты с видео и фото, карусели, reels, профили, сторисы, хайлайты, музыка, локации, хэштеги;\n\n🤝🏼 Бот также отлично работает в группах. Конвертируйте ссылки в контент не выходя из Telegram."
 	},
 	"en": {
 		"name": "🇬🇧 English",
-		"00001": "Hi, friend! My name is Andy and I will help you get data from various social networks. Just send me a link to a post or profile from available social networks.",
+		"00001": "👋 Hello friend! My name is <i>Andy</i> and I will help you get data from various social networks.\n\n🔗 <b>Just send a link to the content from the social networks available to me.</b>\n\n📋 You can get acquainted with them here - /help",
 		"00002": "<i>Language changed successfully.</i>",
 		"00003": "🖼 Cover",
 		"00004": "🔄 GIF Cover",
@@ -120,6 +122,7 @@
 		"00035": "Publication date",
 		"cmd1": "Find out the bot's capabilities",
 		"cmd2": "Change language",
-		"cmd3": "Launch bot"
+		"cmd3": "Launch bot",
+		"help": "✅ <i>“Scraping is a way to automatically collect information from websites.”</i>\n\nThe bot collects all information from available social networks - <b>just send a link to the desired content</b >.\n\n⬇️ Available social networks:\n\n<b>• TikTok</b>\n- videos, slideshows, profiles, music, hashtags, stories;\n\n<b>• Instagram</ b>\n- posts with videos and photos, carousels, reels, profiles, stories, highlights, music, locations, hashtags;\n\n🤝🏼 The bot also works great in groups. Convert links into content without leaving Telegram."
 	}
 }

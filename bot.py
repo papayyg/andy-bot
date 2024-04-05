@@ -10,10 +10,14 @@ from handlers import user_commands, tiktok, instagram, groups
 from config import BOT_TOKEN
 from utils.locales import get_chats_locales
 from utils.commands import set_commands_for_all_chats
+from middlewares.antiflood import AntiFloodMiddleware
 
 async def main():
     bot = Bot(BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = Dispatcher()
+    
+    dp.message.middleware(AntiFloodMiddleware())
+
     dp.include_routers(
         user_commands.router,
         tiktok.router,

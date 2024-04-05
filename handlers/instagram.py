@@ -11,7 +11,7 @@ from utils.locales import locales_dict
 router = Router()
 
 @router.message(F.chat.type.in_({"group", "supergroup"}), F.text.contains('instagram.com/'))
-async def tiktok_message(message: Message):
+async def instagram_message_group(message: Message):
     ff = await message.answer(await _('00006', locales_dict[message.chat.id]))
     lang = locales_dict[message.chat.id]
     user = message.from_user.mention_html()
@@ -77,7 +77,7 @@ async def tiktok_message(message: Message):
     await ff.delete()
 
 @router.message(F.text.contains('instagram.com/'))
-async def tiktok_message(message: Message):
+async def instagram_message(message: Message):
     ff = await message.answer(await _('00006', locales_dict[message.chat.id]))
     lang = locales_dict[message.chat.id]
 
