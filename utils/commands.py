@@ -17,6 +17,14 @@ async def get_commands(lang):
             command='start',
             description=await _('cmd3', lang)
         ),
+        BotCommand(
+            command='issue',
+            description=await _('cmd4', lang)
+        ),
+        BotCommand(
+            command='github',
+            description=await _('cmd5', lang)
+        ),
     ]
     return commands
 

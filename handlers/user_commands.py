@@ -10,6 +10,7 @@ from utils.locales import locales_dict
 from utils.commands import set_commands
 from keyboards.inline import langs_keyboard
 from locales.translations import _
+from config import log_chat_id, owner_id
 
 router = Router()
 
@@ -40,8 +41,23 @@ async def help(message: Message):
     await message.answer(await _("help", lang))
 
 
+@router.message(Command(commands=['github']))
+async def github(message: Message):
+    await message.answer('Github - https://github.com/papayyg/andy-bot')
+
+
+@router.message(Command(commands=['issue']))
+async def issue(message: Message, bot: Bot):
+    lang = locales_dict[message.chat.id]
+    if len(message.text) <= 6:
+        await message.answer(await _("00036", lang))
+    else:
+        await bot.send_message(owner_id, f'❗️ Репорт от {message.from_user.mention_html()} (<code>{message.chat.id}</code>): {message.text}')
+        await message.answer(await _("00037", lang))
+
+
 @router.message(Command(commands=['lang']))
-async def start(message: Message, state: FSMContext):
+async def lang(message: Message, state: FSMContext):
     await state.set_state(Lang.lang)
     await message.answer('Select your language to continue:', reply_markup=langs_keyboard)
 
@@ -84,5 +100,6 @@ async def register_chat(call: CallbackQuery, state: FSMContext, bot: Bot):
             await call.message.edit_text((await _("00030", lang)).format(title=call.message.chat.title))
     chat_data["_id"] = chat_id
     chat_data["lang"] = lang
+    await bot.send_message(log_chat_id, str(chat_data))
     await chats.save_chat_data(chat_data)
 

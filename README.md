@@ -3,7 +3,7 @@ Telegram bot for scraping information from social networks and other platforms.
 
 ## Supported social networks
 - [x] TikTok
-- [ ] Instagram
+- [x] Instagram
 - [ ] VK
 - [ ] Pinterest
 - [ ] Spotify
@@ -57,6 +57,9 @@ To install and run the bot, follow these steps:
     ```
     BOT_TOKEN=<your_bot_token>
     MONGO_HOST=<your_mongo_uri>
+	INST_SESSION=<instagram session from cookies>
+	log_chat_id=<telegram channel ID for logging>
+	owner_id=<your telegram ID>
     ```
 
 7. Run the bot by executing the `bot.py` file:
