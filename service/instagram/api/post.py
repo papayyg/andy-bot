@@ -1,4 +1,5 @@
 import httpx
+import aiohttp
 import aiofiles
 import json
 from datetime import datetime
@@ -20,9 +21,9 @@ class Post:
 
     async def get_data(self, data):
         if not data:
-            async with httpx.AsyncClient() as client:
+            async with aiohttp.ClientSession() as client:
                 response = await client.get(self.link, cookies=self.parent.cookies, headers=self.parent.headers)
-                soup = BeautifulSoup(response.text, "html.parser")
+                soup = BeautifulSoup(await response.text(), "html.parser")
                 script_tags = soup.find_all('script')
                 target_script = None
                 for script_tag in script_tags:
@@ -33,7 +34,7 @@ class Post:
             await self.set_time()
             
         self.parent.user = User(self.parent.data["owner"])
-        self.desc = self.parent.data["caption"]["text"]
+        self.desc = self.parent.data["caption"]["text"] if self.parent.data.get("caption") else ''
         self.pk = self.parent.data["pk"]
         if self.parent.data['carousel_media']:
             self.parent.type = 'carousel'

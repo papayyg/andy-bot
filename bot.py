@@ -5,9 +5,9 @@ import sys
 from aiogram import Bot, Dispatcher
 from aiogram.client.bot import DefaultBotProperties
 from aiogram.enums import ParseMode
-from handlers import user_commands, tiktok, instagram, groups
+from handlers import user_commands, tiktok, instagram, groups, errors_handler
 
-from config import BOT_TOKEN
+from config import BOT_TOKEN, TEST_TOKEN
 from utils.locales import get_chats_locales
 from utils.commands import set_commands_for_all_chats
 from middlewares.antiflood import AntiFloodMiddleware
@@ -23,6 +23,7 @@ async def main():
         tiktok.router,
         instagram.router,
         groups.router,
+        errors_handler.router
     )
     await get_chats_locales()
     await set_commands_for_all_chats(bot)

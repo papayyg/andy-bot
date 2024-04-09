@@ -1,1 +1,1 @@
-from . import user_commands, groups, tiktok
+from . import user_commands, groups, tiktok, instagram, errors_handler

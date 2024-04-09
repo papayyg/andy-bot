@@ -6,6 +6,7 @@ Telegram bot for scraping information from social networks and other platforms.
 - [x] Instagram
 - [ ] VK
 - [ ] Pinterest
+- [ ] LinkedIn
 - [ ] Spotify
 - [ ] Yandex Music
 
@@ -56,6 +57,7 @@ To install and run the bot, follow these steps:
 
     ```
     BOT_TOKEN=<your_bot_token>
+	TEST_TOKEN=<your_bot_token_for_tests>
     MONGO_HOST=<your_mongo_uri>
 	INST_SESSION=<instagram session from cookies>
 	log_chat_id=<telegram channel ID for logging>

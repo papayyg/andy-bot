@@ -7,6 +7,7 @@ from service.tiktok.tiktok import TikTokAPI
 from keyboards.inline import commnet_keyboard
 from locales.translations import _
 from utils.locales import locales_dict
+from config import owner_id
 
 router = Router()
 
@@ -17,137 +18,146 @@ async def get_audio(api, message, keyboard=None):
     await api.music.save()
     
 @router.message(F.chat.type.in_({"group", "supergroup"}), F.text.contains('tiktok.com/'))
-async def tiktok_message_group(message: Message):
+async def tiktok_message_group(message: Message, bot: Bot):
     lang = locales_dict[message.chat.id]
     new_video = None
     user = message.from_user.mention_html()
-    async with TikTokAPI(message) as api:
-        if api.type == 'video':
-            video = await api.video.download(api.video.download_link)
-            if video == False:
-                return await message.answer(await _("00027", lang))
-            caption = await api.video.create_caption_for_group(user)
-            keyboard = await api.video.crate_keyboard_for_group()
-            new_video = await message.answer_video(video, api.video.duration, api.video.width, api.video.height, caption=caption)
-            api.video.file_id = new_video.video.file_id
-            await api.video.save()
+    try:
+        async with TikTokAPI(message) as api:
+            if api.type == 'video':
+                video = await api.video.download(api.video.download_link)
+                if video == False:
+                    return await message.answer(await _("00027", lang))
+                caption = await api.video.create_caption_for_group(user)
+                keyboard = await api.video.crate_keyboard_for_group()
+                new_video = await message.answer_video(video, api.video.duration, api.video.width, api.video.height, caption=caption)
+                api.video.file_id = new_video.video.file_id
+                await api.video.save()
 
-        elif api.type == 'profile':
-            photo = await api.user.download_cover()
-            caption = await api.user.create_caption_for_group(user)
-            await message.answer_photo(photo, caption=caption)
+            elif api.type == 'profile':
+                photo = await api.user.download_cover()
+                caption = await api.user.create_caption_for_group(user)
+                await message.answer_photo(photo, caption=caption)
+            
+            elif api.type == 'slides':
+                groups = await api.slides.get_slides(user)
+                keyboard = await api.slides.crate_keyboard_for_group()
+                for media_group in groups:
+                    photos = await message.answer_media_group(media_group.build())
+                    for photo in photos:
+                        api.slides.files_ids.append(photo.photo[-1].file_id)
+                await api.slides.save()
+
+                await get_audio(api, message, keyboard)
+                
+            elif api.type == 'music':
+                photo = await api.user.download_cover()
+                caption = await api.music.create_caption_for_group(lang, user)
+                await message.answer_photo(photo, caption=caption, disable_web_page_preview=True)
+                await get_audio(api, message)
+
+            elif api.type == "challenge":
+                caption = await api.challenge.create_caption_for_group(lang, user)
+                text = await message.answer(caption, disable_web_page_preview=True)
+                video = await api.video.download(api.video.download_link)
+                caption = await api.video.create_caption_for_group(user)
+                keyboard = None
+                new_video = await text.reply_video(video, api.video.duration, api.video.width, api.video.height, caption=caption)
+                api.video.file_id = new_video.video.file_id 
+                await api.video.save()
+                
+            elif api.type == "stories":
+                video, caption = await api.ssstik_download(user)
+                await message.answer_video(video, caption=caption)
+
+            elif api.type == "live":
+                return
+
+            elif api.type == "playlist":
+                return
+                
+            await message.delete()
         
-        elif api.type == 'slides':
-            groups = await api.slides.get_slides(user)
-            keyboard = await api.slides.crate_keyboard_for_group()
-            for media_group in groups:
-                photos = await message.answer_media_group(media_group.build())
-                for photo in photos:
-                    api.slides.files_ids.append(photo.photo[-1].file_id)
-            await api.slides.save()
-
-            await get_audio(api, message, keyboard)
-            
-        elif api.type == 'music':
-            photo = await api.user.download_cover()
-            caption = await api.music.create_caption_for_group(lang, user)
-            await message.answer_photo(photo, caption=caption, disable_web_page_preview=True)
-            await get_audio(api, message)
-
-        elif api.type == "challenge":
-            caption = await api.challenge.create_caption_for_group(lang, user)
-            text = await message.answer(caption, disable_web_page_preview=True)
-            video = await api.video.download(api.video.download_link)
-            caption = await api.video.create_caption_for_group(user)
-            keyboard = None
-            new_video = await text.reply_video(video, api.video.duration, api.video.width, api.video.height, caption=caption)
-            api.video.file_id = new_video.video.file_id 
-            await api.video.save()
-            
-        elif api.type == "stories":
-            video, caption = await api.ssstik_download(user)
-            await message.answer_video(video, caption=caption)
-
-        elif api.type == "live":
-            return
-
-        elif api.type == "playlist":
-            return
-            
-        await message.delete()
-    
-    if new_video and keyboard:
-        await new_video.edit_reply_markup(reply_markup=keyboard)
+        if new_video and keyboard:
+            await new_video.edit_reply_markup(reply_markup=keyboard)
+    except:
+        await message.answer(await _("00038", lang))
+        await bot.send_message(owner_id, f'Ошибка: {message.text} {message.chat.id}')
 
 @router.message(F.text.contains('tiktok.com/'))
-async def tiktok_message(message: Message):
+async def tiktok_message(message: Message, bot: Bot):
     ff = await message.answer(await _('00006', locales_dict[message.chat.id]))
     lang = locales_dict[message.chat.id]
     new_video = None
-    async with TikTokAPI(message) as api:
-        if api.type == 'video':
-            video = await api.video.download(api.video.download_link)
-            if video == False:
-                return await message.answer(await _("00027", lang))
-            caption = await api.video.create_caption()
-            keyboard = await api.video.crate_keyboard()
-            new_video = await message.answer_video(video, api.video.duration, api.video.width, api.video.height, caption=caption)
-            if api.video.second_desc: await message.answer(api.video.second_desc)
-            api.video.file_id = new_video.video.file_id
-            await api.video.save()
+    try:
+        async with TikTokAPI(message) as api:
+            if api.type == 'video':
+                video = await api.video.download(api.video.download_link)
+                if video == False:
+                    return await message.answer(await _("00027", lang))
+                caption = await api.video.create_caption()
+                keyboard = await api.video.crate_keyboard()
+                new_video = await message.answer_video(video, api.video.duration, api.video.width, api.video.height, caption=caption)
+                if api.video.second_desc: await message.answer(api.video.second_desc)
+                api.video.file_id = new_video.video.file_id
+                await api.video.save()
 
-            await get_audio(api, message)
+                await get_audio(api, message)
 
-        elif api.type == 'profile':
-            photo = await api.user.download_cover()
-            caption = await api.user.create_caption(lang)
-            await message.answer_photo(photo, caption=caption)
+            elif api.type == 'profile':
+                photo = await api.user.download_cover()
+                caption = await api.user.create_caption(lang)
+                await message.answer_photo(photo, caption=caption)
+            
+            elif api.type == 'slides':
+                groups = await api.slides.get_slides()
+                keyboard = await api.slides.crate_keyboard()
+                for media_group in groups:
+                    photos = await message.answer_media_group(media_group.build())
+                    for photo in photos:
+                        api.slides.files_ids.append(photo.photo[-1].file_id)
+                await api.slides.save()
+
+                await get_audio(api, message, keyboard)
+                
+            elif api.type == 'music':
+                photo = await api.user.download_cover()
+                caption = await api.music.create_caption(lang)
+                await message.answer_photo(photo, caption=caption, disable_web_page_preview=True)
+                await get_audio(api, message)
+
+            elif api.type == "challenge":
+                caption = await api.challenge.create_caption(lang)
+                text = await message.answer(caption, disable_web_page_preview=True)
+                video = await api.video.download(api.video.download_link)
+                caption = await api.video.create_caption()
+                keyboard = None
+                new_video = await text.reply_video(video, api.video.duration, api.video.width, api.video.height, caption=caption)
+                api.video.file_id = new_video.video.file_id 
+                await api.video.save()
+                
+            elif api.type == "stories":
+                video, caption = await api.ssstik_download()
+                await message.answer_video(video, caption=caption)
+
+            elif api.type == "live":
+                await ff.delete()
+                return await message.answer(await _("00028", lang))
+
+            elif api.type == "playlist":
+                await ff.delete()
+                return await message.answer(await _("00029", lang))
+                
+                
+            await message.delete()
         
-        elif api.type == 'slides':
-            groups = await api.slides.get_slides()
-            keyboard = await api.slides.crate_keyboard()
-            for media_group in groups:
-                photos = await message.answer_media_group(media_group.build())
-                for photo in photos:
-                    api.slides.files_ids.append(photo.photo[-1].file_id)
-            await api.slides.save()
-
-            await get_audio(api, message, keyboard)
-            
-        elif api.type == 'music':
-            photo = await api.user.download_cover()
-            caption = await api.music.create_caption(lang)
-            await message.answer_photo(photo, caption=caption, disable_web_page_preview=True)
-            await get_audio(api, message)
-
-        elif api.type == "challenge":
-            caption = await api.challenge.create_caption(lang)
-            text = await message.answer(caption, disable_web_page_preview=True)
-            video = await api.video.download(api.video.download_link)
-            caption = await api.video.create_caption()
-            keyboard = None
-            new_video = await text.reply_video(video, api.video.duration, api.video.width, api.video.height, caption=caption)
-            api.video.file_id = new_video.video.file_id 
-            await api.video.save()
-            
-        elif api.type == "stories":
-            video, caption = await api.ssstik_download()
-            await message.answer_video(video, caption=caption)
-
-        elif api.type == "live":
-            await ff.delete()
-            return await message.answer(await _("00028", lang))
-
-        elif api.type == "playlist":
-            await ff.delete()
-            return await message.answer(await _("00029", lang))
-            
-            
-        await message.delete()
-    
-    if new_video and keyboard:
-        await new_video.edit_reply_markup(reply_markup=keyboard)
-    await ff.delete()
+        if new_video and keyboard:
+            await new_video.edit_reply_markup(reply_markup=keyboard)
+        await ff.delete()
+    except:
+        await ff.delete()
+        await message.answer(await _("00038", lang))
+        await bot.send_message(owner_id, f'Ошибка: {message.text} {message.chat.id}')
 
 @router.callback_query(F.data.startswith('watermark'))
 async def watermark_handler(call: CallbackQuery):
