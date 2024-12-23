@@ -138,7 +138,7 @@ class Video:
         return ' '.join(reversed(groups))
     
     async def get_comments(id, count):
-        link = f'https://www.tiktok.com/api/comment/list/?aweme_id={id}&count={50}'
+        link = f'https://www.tiktok.com/api/comment/list/?aweme_id={id}&count={50}&aid=1988'
         async with httpx.AsyncClient() as client:
             response = await client.get(link)
             comments = (response.json())["comments"]
