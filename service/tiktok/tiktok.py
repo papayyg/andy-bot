@@ -198,11 +198,43 @@ class TikTokAPI:
         try:
             async with async_playwright() as p:
                 browser = await p.chromium.launch(headless=True)
-                await browser.new_context()
-                context  = await browser.new_context(**p.devices['Desktop Chrome'])
+                
+                context = await browser.new_context(
+                    **{
+                        **p.devices['Desktop Chrome'],
+                        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                        'viewport': {'width': 1920, 'height': 1080},
+                        'screen': {'width': 1920, 'height': 1080},
+                        'extra_http_headers': {
+                            'Accept-Language': 'en-US,en;q=0.9',
+                            'sec-ch-ua-platform': '"Windows"'
+                        }
+                    }
+                )
+                
                 page = await context.new_page()
                 await stealth_async(page)
+                
+                await page.add_init_script("""
+                    Object.defineProperty(navigator, 'platform', {
+                        get: function() { return 'Win32'; }
+                    });
+                    Object.defineProperty(navigator, 'userAgentData', {
+                        get: function() { 
+                            return { 
+                                platform: 'Windows',
+                                brands: [
+                                    {brand: 'Chromium', version: '120'},
+                                    {brand: 'Google Chrome', version: '120'},
+                                    {brand: 'Not-A.Brand', version: '99'}
+                                ]
+                            }; 
+                        }
+                    });
+                """)
+                
                 self.challenge = False
+                
                 async def save_responses_and_body(response):
                     if response.url.startswith("https://www.tiktok.com/api/item/detail/") or response.url.startswith("https://www.tiktok.com/api/music/detail/"):
                         body = await response.body()
@@ -238,10 +270,9 @@ class TikTokAPI:
                 page.on("response", save_responses_and_body)
                 
                 await page.goto(self.link)
-                # await page.wait_for_load_state("networkidle")
                 await page.wait_for_selector(".swiper-wrapper")
-        except:
-            pass
+        except Exception as e:
+            print(f"Error in browser initialization: {e}")
 
     async def save(self):
         data = {
