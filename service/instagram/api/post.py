@@ -26,19 +26,39 @@ class Post:
                 soup = BeautifulSoup(await response.text(), "html.parser")
                 script_tags = soup.find_all('script')
                 target_script = None
+                is_reels = False
+                
+                # Сначала ищем новую структуру для reels
                 for script_tag in script_tags:
-                    if 'xdt_api__v1__media__shortcode__web_info' in str(script_tag):
+                    if 'xdt_api__v1__clips__home__connection_v2' in str(script_tag):
                         target_script = script_tag.string
+                        is_reels = True
                         break
-            self.parent.data = json.loads(target_script)["require"][0][3][0]["__bbox"]["require"][0][3][1]["__bbox"]["result"]["data"]["xdt_api__v1__media__shortcode__web_info"]["items"][0]
+                
+                # Если не найдена новая структура, ищем старую
+                if not target_script:
+                    for script_tag in script_tags:
+                        if 'xdt_api__v1__media__shortcode__web_info' in str(script_tag):
+                            target_script = script_tag.string
+                            break
+                
+                if is_reels:
+                    # Новая структура для reels
+                    self.parent.data = json.loads(target_script)["require"][0][3][0]["__bbox"]["require"][0][3][1]["__bbox"]["result"]["data"]["xdt_api__v1__clips__home__connection_v2"]["edges"][0]["node"]["media"]
+                else:
+                    # Старая структура для фото и других постов
+                    self.parent.data = json.loads(target_script)["require"][0][3][0]["__bbox"]["require"][0][3][1]["__bbox"]["result"]["data"]["xdt_api__v1__media__shortcode__web_info"]["items"][0]
+            
             await self.set_time()
             
-        self.parent.user = User(self.parent.data["owner"])
+        # Определяем ключ для пользователя (в новой структуре "user", в старой "owner")
+        user_key = "user" if "user" in self.parent.data else "owner"
+        self.parent.user = User(self.parent.data[user_key])
         self.desc = self.parent.data["caption"]["text"] if self.parent.data.get("caption") else ''
         self.pk = self.parent.data["pk"]
-        if self.parent.data['carousel_media']:
+        if self.parent.data.get('carousel_media'):
             self.parent.type = 'carousel'
-        elif self.parent.data["video_versions"]:
+        elif self.parent.data.get("video_versions"):
             self.parent.type = 'video'
         else:
             self.parent.type = 'image'
@@ -143,7 +163,8 @@ class Post:
             else:
                 data = self.parent.data["video_versions"][0]
                 width = data["width"]
-                height = data["height"]
+                # В новой структуре (reels) используется original_height, в старой - height из video_versions
+                height = self.parent.data.get("original_height") or data.get("height")
                 if not self.parent.file_id:
                     self.parent.path += "/video.mp4"
                     video_link = data["url"]

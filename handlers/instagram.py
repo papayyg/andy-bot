@@ -74,7 +74,8 @@ async def instagram_message_group(message: Message, bot: Bot):
                 await message.answer_photo(cover, caption, disable_web_page_preview=True)
                 
             await message.delete()
-    except:
+    except Exception as e:
+        print(e)
         await message.answer(await _("00038", lang))
         await bot.send_message(owner_id, f'Ошибка: {message.text} {message.chat.id}')
 
@@ -143,7 +144,8 @@ async def instagram_message(message: Message, bot: Bot):
                 
             await message.delete()
         await ff.delete()
-    except:
+    except Exception as e:
+        print(e)
         await ff.delete()
         await message.answer(await _("00038", lang))
         await bot.send_message(owner_id, f'Ошибка: {message.text} {message.chat.id}')

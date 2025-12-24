@@ -54,10 +54,10 @@ class InstagramAPI:
 
     async def get_profile(pk, lang):
         data = (await instagram.pk_exists(pk))["data"]
-        if 'owner' in data:
-            data = data["owner"]
-        elif 'user' in data:
-            data = data['user']
+        if 'user' in data:
+            data = data["user"]
+        elif 'owner' in data:
+            data = data['owner']
         user = User(data)
         await user.get_data()
         caption = await user.create_caption(lang)
