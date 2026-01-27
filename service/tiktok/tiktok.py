@@ -80,7 +80,7 @@ class TikTokAPI:
     async def get_scope_data(self, step = False):
         try:
             async with AsyncSession(impersonate="chrome120") as client:
-                response = await client.get(self.link, follow_redirects=True)
+                response = await client.get(self.link, allow_redirects=True)
                 soup = BeautifulSoup(response.text, "html.parser")
                 script_tag = soup.find('script', id='__UNIVERSAL_DATA_FOR_REHYDRATION__')
 
