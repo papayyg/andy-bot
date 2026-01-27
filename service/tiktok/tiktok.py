@@ -98,8 +98,9 @@ class TikTokAPI:
                 script_tag = soup.find('script', id='__UNIVERSAL_DATA_FOR_REHYDRATION__')
 
                 if script_tag is None:
-                    logger.error(f"TikTok: script tag not found for {self.link}. Status: {response.status_code}, URL: {response.url}")
-                    logger.debug(f"Response text (first 500 chars): {response.text[:500]}")
+                    print(f"[TikTok ERROR] Script tag not found for {self.link}")
+                    print(f"[TikTok ERROR] Status: {response.status_code}, Final URL: {response.url}")
+                    print(f"[TikTok ERROR] Response (first 1000 chars): {response.text[:1000]}")
                     self.type = 'live'
                     return
 
@@ -111,7 +112,9 @@ class TikTokAPI:
                 if step: return
                 await self.split_data()
         except Exception as e:
-            logger.error(f"TikTok get_scope_data error for {self.link}: {type(e).__name__}: {e}")
+            print(f"[TikTok ERROR] get_scope_data exception for {self.link}: {type(e).__name__}: {e}")
+            import traceback
+            traceback.print_exc()
             self.type = 'live'
             return
 
