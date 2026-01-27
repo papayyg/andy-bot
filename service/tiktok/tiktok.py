@@ -4,7 +4,10 @@ import json
 import shutil
 import uuid
 import aiofiles
+import logging
 from bs4 import BeautifulSoup
+
+logger = logging.getLogger(__name__)
 from playwright.async_api import async_playwright
 from playwright_stealth import stealth_async
 from aiogram.types import FSInputFile
@@ -75,18 +78,40 @@ class TikTokAPI:
     
     async def get_scope_data(self, step = False):
         try:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+                'sec-ch-ua-mobile': '?0',
+                'sec-ch-ua-platform': '"Windows"',
+                'sec-fetch-dest': 'document',
+                'sec-fetch-mode': 'navigate',
+                'sec-fetch-site': 'none',
+                'sec-fetch-user': '?1',
+                'upgrade-insecure-requests': '1',
+            }
             async with httpx.AsyncClient() as client:
-                response = await client.get(self.link, follow_redirects=True)
+                response = await client.get(self.link, follow_redirects=True, headers=headers)
                 soup = BeautifulSoup(response.text, "html.parser")
-                script_tag = soup.find('script', id='__UNIVERSAL_DATA_FOR_REHYDRATION__').string
-                json_data = script_tag[script_tag.find('{'):script_tag.rfind('}') + 1]
+                script_tag = soup.find('script', id='__UNIVERSAL_DATA_FOR_REHYDRATION__')
+
+                if script_tag is None:
+                    logger.error(f"TikTok: script tag not found for {self.link}. Status: {response.status_code}, URL: {response.url}")
+                    logger.debug(f"Response text (first 500 chars): {response.text[:500]}")
+                    self.type = 'live'
+                    return
+
+                json_data = script_tag.string[script_tag.string.find('{'):script_tag.string.rfind('}') + 1]
 
                 self.data = json.loads(json_data)['__DEFAULT_SCOPE__']
                 self.tt_chain_token = response.cookies.get("tt_chain_token")
 
                 if step: return
                 await self.split_data()
-        except:
+        except Exception as e:
+            logger.error(f"TikTok get_scope_data error for {self.link}: {type(e).__name__}: {e}")
             self.type = 'live'
             return
 
