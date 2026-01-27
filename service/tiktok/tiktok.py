@@ -6,6 +6,7 @@ import uuid
 import aiofiles
 import logging
 from bs4 import BeautifulSoup
+from curl_cffi.requests import AsyncSession
 
 logger = logging.getLogger(__name__)
 from playwright.async_api import async_playwright
@@ -78,44 +79,22 @@ class TikTokAPI:
     
     async def get_scope_data(self, step = False):
         try:
-            async with async_playwright() as p:
-                browser = await p.chromium.launch(headless=True)
-                context = await browser.new_context(
-                    user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    viewport={'width': 1920, 'height': 1080},
-                )
-                page = await context.new_page()
-                await stealth_async(page)
-
-                await page.goto(self.link, wait_until='domcontentloaded')
-
-                # Wait for the data script to appear (handles WAF challenge automatically)
-                try:
-                    await page.wait_for_selector('script#__UNIVERSAL_DATA_FOR_REHYDRATION__', timeout=15000)
-                except:
-                    pass
-
-                content = await page.content()
-                cookies = await context.cookies()
-                await browser.close()
-
-                soup = BeautifulSoup(content, "html.parser")
+            async with AsyncSession(impersonate="chrome120") as client:
+                response = await client.get(self.link, follow_redirects=True)
+                soup = BeautifulSoup(response.text, "html.parser")
                 script_tag = soup.find('script', id='__UNIVERSAL_DATA_FOR_REHYDRATION__')
 
                 if script_tag is None:
                     print(f"[TikTok ERROR] Script tag not found for {self.link}")
-                    print(f"[TikTok ERROR] Response (first 1000 chars): {content[:1000]}")
+                    print(f"[TikTok ERROR] Status: {response.status_code}, Final URL: {response.url}")
+                    print(f"[TikTok ERROR] Response (first 1000 chars): {response.text[:1000]}")
                     self.type = 'live'
                     return
 
                 json_data = script_tag.string[script_tag.string.find('{'):script_tag.string.rfind('}') + 1]
 
                 self.data = json.loads(json_data)['__DEFAULT_SCOPE__']
-
-                for cookie in cookies:
-                    if cookie['name'] == 'tt_chain_token':
-                        self.tt_chain_token = cookie['value']
-                        break
+                self.tt_chain_token = response.cookies.get("tt_chain_token")
 
                 if step: return
                 await self.split_data()
