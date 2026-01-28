@@ -79,8 +79,14 @@ class TikTokAPI:
     
     async def get_scope_data(self, step = False):
         try:
-            async with AsyncSession(impersonate="chrome120") as client:
-                response = await client.get(self.link, allow_redirects=True)
+            async with AsyncSession(impersonate="chrome131") as client:
+                headers = {
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Cache-Control': 'no-cache',
+                    'Pragma': 'no-cache',
+                }
+                response = await client.get(self.link, allow_redirects=True, headers=headers)
                 soup = BeautifulSoup(response.text, "html.parser")
                 script_tag = soup.find('script', id='__UNIVERSAL_DATA_FOR_REHYDRATION__')
 
@@ -180,7 +186,7 @@ class TikTokAPI:
             self.video.parent = self
 
     async def sstick_get(self):
-        headers = {
+        headers = { 
             'sec-ch-ua': '"Google Chrome";v="123", "Not:A-Brand";v="8", "Chromium";v="123"',
             'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
         }
