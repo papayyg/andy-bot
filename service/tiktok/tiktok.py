@@ -91,10 +91,26 @@ class TikTokAPI:
                 script_tag = soup.find('script', id='__UNIVERSAL_DATA_FOR_REHYDRATION__')
 
                 if script_tag is None:
-                    print(f"[TikTok ERROR] Script tag not found for {self.link}")
-                    print(f"[TikTok ERROR] Status: {response.status_code}, Final URL: {response.url}")
-                    print(f"[TikTok ERROR] Response (first 1000 chars): {response.text[:1000]}")
-                    self.type = 'live'
+                    # TikTok вернул WAF/антибот страницу вместо контента — пробуем через браузер
+                    is_waf_challenge = (
+                        response.status_code == 200
+                        and ("Please wait" in response.text or "SlardarWAF" in response.text or "slardar-config" in response.text)
+                    )
+                    if is_waf_challenge:
+                        logger.warning(
+                            "[TikTok] WAF challenge for %s, falling back to browser",
+                            self.link,
+                        )
+                        self.type = None  # get_type_content вызовет browser_initialization
+                        return
+                    logger.error(
+                        "[TikTok] Script tag not found for %s | Status: %s | URL: %s",
+                        self.link,
+                        response.status_code,
+                        response.url,
+                    )
+                    logger.debug("[TikTok] Response (first 1000 chars): %s", response.text[:1000])
+                    self.type = "live"
                     return
 
                 json_data = script_tag.string[script_tag.string.find('{'):script_tag.string.rfind('}') + 1]
@@ -105,10 +121,8 @@ class TikTokAPI:
                 if step: return
                 await self.split_data()
         except Exception as e:
-            print(f"[TikTok ERROR] get_scope_data exception for {self.link}: {type(e).__name__}: {e}")
-            import traceback
-            traceback.print_exc()
-            self.type = 'live'
+            logger.exception("[TikTok] get_scope_data exception for %s: %s", self.link, e)
+            self.type = "live"
             return
 
     async def redirect(self):
@@ -293,7 +307,7 @@ class TikTokAPI:
                 await page.goto(self.link)
                 await page.wait_for_selector(".swiper-wrapper")
         except Exception as e:
-            print(f"Error in browser initialization: {e}")
+            logger.exception("[TikTok] Error in browser initialization: %s", e)
 
     async def save(self):
         data = {
