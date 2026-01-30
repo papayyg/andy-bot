@@ -1,4 +1,5 @@
 import os
+import platform
 import httpx
 import json
 import shutil
@@ -86,6 +87,15 @@ class TikTokAPI:
                     'Cache-Control': 'no-cache',
                     'Pragma': 'no-cache',
                 }
+                # На Linux curl_cffi может отдавать заголовки с платформой Linux — WAF TikTok режет.
+                # Принудительно выдаём себя за Windows Chrome (TLS fingerprint уже Chrome от impersonate).
+                if platform.system() == 'Linux':
+                    headers.update({
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                        'sec-ch-ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+                        'sec-ch-ua-mobile': '?0',
+                        'sec-ch-ua-platform': '"Windows"',
+                    })
                 response = await client.get(self.link, allow_redirects=True, headers=headers)
                 soup = BeautifulSoup(response.text, "html.parser")
                 script_tag = soup.find('script', id='__UNIVERSAL_DATA_FOR_REHYDRATION__')
