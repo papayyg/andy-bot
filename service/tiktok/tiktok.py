@@ -1,4 +1,5 @@
 import os
+import asyncio
 import platform
 import httpx
 import json
@@ -45,7 +46,14 @@ class TikTokAPI:
         os.makedirs(f'temp/{self.unique_id}')
         await self.extract_tiktok_link()
         if not await self.check_link():
-            await self.get_scope_data()
+            # На Linux TikTok чаще отдаёт WAF на первичный HTML-запрос.
+            # Сначала пробуем браузерный путь, а curl_cffi оставляем как fallback.
+            if platform.system() == "Linux":
+                await self.browser_initialization()
+                if not self.data:
+                    await self.get_scope_data()
+            else:
+                await self.get_scope_data()
         await self.get_type_content()
         return self
 
@@ -92,7 +100,6 @@ class TikTokAPI:
                 if platform.system() == 'Linux':
                     headers.update({
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-                        'sec-ch-ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
                         'sec-ch-ua-mobile': '?0',
                         'sec-ch-ua-platform': '"Windows"',
                     })
@@ -160,6 +167,10 @@ class TikTokAPI:
         if self.link in ['https://www.tiktok.com/', 'https://www.tiktok.com', 'www.tiktok.com/', 'www.tiktok.com', 'tiktok.com/', 'tiktok.com']:
             self.type = 'None'
             return
+        # Если данные уже пришли из browser_initialization, сразу разбираем их.
+        if not self.type and isinstance(self.data, dict):
+            await self.get_sub_type()
+            return
         if self.type == 'video':
             self.video = Video(self.data)
             self.user = User(self.data["author"])
@@ -175,6 +186,10 @@ class TikTokAPI:
             if not self.type:
                 if not self.mobile:
                     await self.browser_initialization()
+                    if not self.data:
+                        logger.error("[TikTok] Browser fallback failed to fetch data for %s", self.link)
+                        self.type = 'live'
+                        return
                 else:
                     self.type = 'stories'
                     await self.sstick_get()
@@ -183,6 +198,9 @@ class TikTokAPI:
 
     async def get_sub_type(self):
         if self.type == 'live':
+            return
+        if not isinstance(self.data, dict):
+            self.type = 'live'
             return
         if 'itemInfo' in self.data:
             data = self.data["itemInfo"]["itemStruct"]
@@ -279,43 +297,41 @@ class TikTokAPI:
                 """)
                 
                 self.challenge = False
+                network_data_ready = asyncio.Event()
                 
                 async def save_responses_and_body(response):
                     if response.url.startswith("https://www.tiktok.com/api/item/detail/") or response.url.startswith("https://www.tiktok.com/api/music/detail/"):
                         body = await response.body()
                         regular_string = body.decode('utf-8')
                         self.data = json.loads(regular_string)
+                        network_data_ready.set()
+                    elif response.url.startswith("https://www.tiktok.com/api/challenge/detail/"):
 
                         cookies = await page.context.cookies()
                         for cookie in cookies:
                             if cookie['name'] == 'tt_chain_token':
                                 self.tt_chain_token = cookie["value"]
                                 break
-                        page.remove_listener("response", save_responses_and_body)
-                        await browser.close()
-                    elif response.url.startswith("https://www.tiktok.com/api/challenge/detail/"):
                         body = await response.body()
                         regular_string = body.decode('utf-8')
                         self.data = json.loads(regular_string)
-
-                        cookies = await page.context.cookies()
-                        for cookie in cookies:
-                            if cookie['name'] == 'tt_chain_token':
-                                self.tt_chain_token = cookie["value"]
-                                break
                         self.challenge = True
                     elif response.url.startswith("https://www.tiktok.com/api/challenge/item_list/") and self.challenge:
                         body = await response.body()
                         regular_string = body.decode('utf-8')
                         self.content = json.loads(regular_string)["itemList"][0]
-                        
-                        page.remove_listener("response", save_responses_and_body)
-                        await browser.close()
+                        network_data_ready.set()
         
                 page.on("response", save_responses_and_body)
                 
-                await page.goto(self.link)
-                await page.wait_for_selector(".swiper-wrapper")
+                await page.goto(self.link, wait_until="domcontentloaded", timeout=45000)
+                await asyncio.wait_for(network_data_ready.wait(), timeout=45)
+                cookies = await page.context.cookies()
+                for cookie in cookies:
+                    if cookie['name'] == 'tt_chain_token':
+                        self.tt_chain_token = cookie["value"]
+                        break
+                page.remove_listener("response", save_responses_and_body)
         except Exception as e:
             logger.exception("[TikTok] Error in browser initialization: %s", e)
 
