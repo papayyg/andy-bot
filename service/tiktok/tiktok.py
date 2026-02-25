@@ -46,14 +46,8 @@ class TikTokAPI:
         os.makedirs(f'temp/{self.unique_id}')
         await self.extract_tiktok_link()
         if not await self.check_link():
-            # На Linux TikTok чаще отдаёт WAF на первичный HTML-запрос.
-            # Сначала пробуем браузерный путь, а curl_cffi оставляем как fallback.
-            if platform.system() == "Linux":
-                await self.browser_initialization()
-                if not self.data:
-                    await self.get_scope_data()
-            else:
-                await self.get_scope_data()
+            # curl_cffi с прогревом сессии обходит WAF надёжнее браузера и быстрее.
+            await self.get_scope_data()
         await self.get_type_content()
         return self
 
@@ -89,36 +83,56 @@ class TikTokAPI:
     async def get_scope_data(self, step = False):
         try:
             async with AsyncSession(impersonate="chrome131") as client:
-                headers = {
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                # Всегда представляемся Windows Chrome — WAF TikTok режет Linux/headless UA.
+                # TLS fingerprint уже Chrome благодаря impersonate="chrome131".
+                base_headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
                     'Accept-Language': 'en-US,en;q=0.9',
                     'Cache-Control': 'no-cache',
                     'Pragma': 'no-cache',
+                    'sec-ch-ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+                    'sec-ch-ua-mobile': '?0',
+                    'sec-ch-ua-platform': '"Windows"',
+                    'Upgrade-Insecure-Requests': '1',
+                    'Sec-Fetch-Dest': 'document',
+                    'Sec-Fetch-Mode': 'navigate',
+                    'Sec-Fetch-Site': 'none',
+                    'Sec-Fetch-User': '?1',
                 }
-                # На Linux curl_cffi может отдавать заголовки с платформой Linux — WAF TikTok режет.
-                # Принудительно выдаём себя за Windows Chrome (TLS fingerprint уже Chrome от impersonate).
-                if platform.system() == 'Linux':
-                    headers.update({
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-                        'sec-ch-ua-mobile': '?0',
-                        'sec-ch-ua-platform': '"Windows"',
-                    })
-                response = await client.get(self.link, allow_redirects=True, headers=headers)
+                # Прогреваем сессию через главную страницу, чтобы получить куки
+                # (msToken, ttwid, tt_webid_v2) — без них WAF режет последующие запросы.
+                try:
+                    await client.get(
+                        'https://www.tiktok.com/',
+                        headers=base_headers,
+                        allow_redirects=True,
+                        timeout=15,
+                    )
+                except Exception:
+                    pass  # Если прогрев не удался — всё равно пробуем основной запрос
+
+                # Основной запрос: теперь сессия несёт куки, Referer выглядит органично
+                fetch_headers = {
+                    **base_headers,
+                    'Referer': 'https://www.tiktok.com/',
+                    'Sec-Fetch-Site': 'same-origin',
+                }
+                response = await client.get(self.link, allow_redirects=True, headers=fetch_headers)
                 soup = BeautifulSoup(response.text, "html.parser")
                 script_tag = soup.find('script', id='__UNIVERSAL_DATA_FOR_REHYDRATION__')
 
                 if script_tag is None:
-                    # TikTok вернул WAF/антибот страницу вместо контента — пробуем через браузер
                     is_waf_challenge = (
                         response.status_code == 200
                         and ("Please wait" in response.text or "SlardarWAF" in response.text or "slardar-config" in response.text)
                     )
                     if is_waf_challenge:
                         logger.warning(
-                            "[TikTok] WAF challenge for %s, falling back to browser",
+                            "[TikTok] WAF challenge for %s (warm-up did not help)",
                             self.link,
                         )
-                        self.type = None  # get_type_content вызовет browser_initialization
+                        self.type = "live"
                         return
                     logger.error(
                         "[TikTok] Script tag not found for %s | Status: %s | URL: %s",
