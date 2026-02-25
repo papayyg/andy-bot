@@ -1,18 +1,10 @@
 import os
-import asyncio
-import platform
 import httpx
-import json
 import shutil
 import uuid
 import aiofiles
 import logging
 from bs4 import BeautifulSoup
-from curl_cffi.requests import AsyncSession
-
-logger = logging.getLogger(__name__)
-from playwright.async_api import async_playwright
-from playwright_stealth import stealth_async
 from aiogram.types import FSInputFile
 
 from .api.video import Video
@@ -21,6 +13,9 @@ from .api.music import Music
 from .api.slides import Slides
 from .api.challenge import Challenge
 from utils.db import tiktok
+
+logger = logging.getLogger(__name__)
+
 
 class TikTokAPI:
     video = Video
@@ -39,14 +34,11 @@ class TikTokAPI:
         self.content = None
         self.tt_chain_token = None
         self.type = None
-        self.mobile = False
-        self.challenge = False
 
     async def __aenter__(self):
         os.makedirs(f'temp/{self.unique_id}')
         await self.extract_tiktok_link()
         if not await self.check_link():
-            # curl_cffi с прогревом сессии обходит WAF надёжнее браузера и быстрее.
             await self.get_scope_data()
         await self.get_type_content()
         return self
@@ -66,122 +58,173 @@ class TikTokAPI:
 
     async def extract_tiktok_link(self):
         start_index = self.text.find("tiktok.com")
-        
-        left_space_index = self.text.rfind(" ", 0, start_index) 
+
+        left_space_index = self.text.rfind(" ", 0, start_index)
         if left_space_index == -1:
             left_space_index = 0
         right_space_index = self.text.find(" ", start_index)
         if right_space_index == -1:
             right_space_index = len(self.text)
-        
+
         final_str = self.text[left_space_index:right_space_index].strip()
         if not final_str.startswith('https://'):
             final_str = f'https://{final_str}'
 
         self.link = final_str
-    
-    async def get_scope_data(self, step = False):
-        try:
-            async with AsyncSession(impersonate="chrome131") as client:
-                # Всегда представляемся Windows Chrome — WAF TikTok режет Linux/headless UA.
-                # TLS fingerprint уже Chrome благодаря impersonate="chrome131".
-                base_headers = {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-                    'Accept-Language': 'en-US,en;q=0.9',
-                    'Cache-Control': 'no-cache',
-                    'Pragma': 'no-cache',
-                    'sec-ch-ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
-                    'sec-ch-ua-mobile': '?0',
-                    'sec-ch-ua-platform': '"Windows"',
-                    'Upgrade-Insecure-Requests': '1',
-                    'Sec-Fetch-Dest': 'document',
-                    'Sec-Fetch-Mode': 'navigate',
-                    'Sec-Fetch-Site': 'none',
-                    'Sec-Fetch-User': '?1',
-                }
-                # Прогреваем сессию через главную страницу, чтобы получить куки
-                # (msToken, ttwid, tt_webid_v2) — без них WAF режет последующие запросы.
-                try:
-                    await client.get(
-                        'https://www.tiktok.com/',
-                        headers=base_headers,
-                        allow_redirects=True,
-                        timeout=15,
-                    )
-                except Exception:
-                    pass  # Если прогрев не удался — всё равно пробуем основной запрос
 
-                # Основной запрос: теперь сессия несёт куки, Referer выглядит органично
-                fetch_headers = {
-                    **base_headers,
-                    'Referer': 'https://www.tiktok.com/',
-                    'Sec-Fetch-Site': 'same-origin',
-                }
-                response = await client.get(self.link, allow_redirects=True, headers=fetch_headers)
-                soup = BeautifulSoup(response.text, "html.parser")
-                script_tag = soup.find('script', id='__UNIVERSAL_DATA_FOR_REHYDRATION__')
+    def _is_profile_url(self):
+        return (
+            '/@' in self.link
+            and '/video/' not in self.link
+            and '/music/' not in self.link
+            and '/tag/' not in self.link
+        )
 
-                if script_tag is None:
-                    is_waf_challenge = (
-                        response.status_code == 200
-                        and ("Please wait" in response.text or "SlardarWAF" in response.text or "slardar-config" in response.text)
-                    )
-                    if is_waf_challenge:
-                        logger.warning(
-                            "[TikTok] WAF challenge for %s (warm-up did not help)",
-                            self.link,
-                        )
-                        self.type = "live"
-                        return
-                    logger.error(
-                        "[TikTok] Script tag not found for %s | Status: %s | URL: %s",
-                        self.link,
-                        response.status_code,
-                        response.url,
-                    )
-                    logger.debug("[TikTok] Response (first 1000 chars): %s", response.text[:1000])
-                    self.type = "live"
-                    return
-
-                json_data = script_tag.string[script_tag.string.find('{'):script_tag.string.rfind('}') + 1]
-
-                self.data = json.loads(json_data)['__DEFAULT_SCOPE__']
-                self.tt_chain_token = response.cookies.get("tt_chain_token")
-
-                if step: return
-                await self.split_data()
-        except Exception as e:
-            logger.exception("[TikTok] get_scope_data exception for %s: %s", self.link, e)
-            self.type = "live"
-            return
-
-    async def redirect(self):
-        self.link = f'https://www.tiktok.com{self.data["webapp.browserRedirect-context"]["browserRedirectUrl"]}'
-        await self.get_scope_data(True)
-
-    async def split_data(self):
-        if "webapp.browserRedirect-context" in self.data:
-            await self.redirect()
-        if "webapp.video-detail" in self.data and "itemInfo" in self.data["webapp.video-detail"]:
-            self.type = 'video'
-            self.data = self.data["webapp.video-detail"]["itemInfo"]["itemStruct"]
-        elif "webapp.user-detail" in self.data or self.type == 'profile':
-            self.type = 'profile'
-            self.data = self.data["webapp.user-detail"]["userInfo"]
-        elif "playlist" in self.data["seo.abtest"]["canonical"]:
-            self.type = 'playlist'
-            return
+    async def get_scope_data(self):
+        if self._is_profile_url():
+            await self._get_profile_via_tikwm()
         else:
-            if "webapp.video-detail" in self.data and "itemInfo" not in self.data["webapp.video-detail"]:
-                self.mobile = True
-            pass
-        
+            await self._get_post_via_tikwm()
+
+    async def _get_post_via_tikwm(self):
+        """Получаем данные о посте (видео/слайды) через tikwm.com."""
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.post(
+                    'https://www.tikwm.com/api/',
+                    data={'url': self.link, 'hd': 1},
+                    headers={
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                    },
+                )
+                result = response.json()
+
+            if result.get('code') != 0:
+                logger.error("[TikTok] tikwm API error for %s: %s", self.link, result.get('msg'))
+                self.type = 'live'
+                return
+
+            d = result['data']
+            mi = d.get("music_info", {})
+            author = {
+                "id": d["author"]["id"],
+                "uniqueId": d["author"]["unique_id"],
+                "nickname": d["author"]["nickname"],
+                "avatarLarger": d["author"]["avatar"],
+                "signature": "",
+            }
+            music = {
+                "id": str(mi.get("id", "")),
+                "authorName": mi.get("author", ""),
+                "title": mi.get("title", ""),
+                "playUrl": mi.get("play", d.get("music", "")),
+                "coverLarge": mi.get("cover", d.get("cover", "")),
+                "duration": mi.get("duration", d.get("duration", 0)),
+            }
+            stats = {
+                "diggCount": str(d.get("digg_count", 0)),
+                "commentCount": str(d.get("comment_count", 0)),
+                "playCount": str(d.get("play_count", 0)),
+                "shareCount": str(d.get("share_count", 0)),
+                "collectCount": str(d.get("collect_count", 0)),
+            }
+
+            if d.get("images"):
+                item_struct = {
+                    "id": d["id"],
+                    "desc": d["title"],
+                    "createTime": str(d["create_time"]),
+                    "statsV2": stats,
+                    "imagePost": {
+                        "images": [
+                            {"imageURL": {"urlList": [img_url]}}
+                            for img_url in d["images"]
+                        ]
+                    },
+                    "author": author,
+                    "music": music,
+                }
+                self.data = {"itemInfo": {"itemStruct": item_struct}}
+                self.type = None  # get_sub_type разберёт itemInfo → slides
+            else:
+                self.data = {
+                    "id": d["id"],
+                    "desc": d["title"],
+                    "createTime": str(d["create_time"]),
+                    "video": {
+                        "height": d.get("height", 1024),
+                        "width": d.get("width", 576),
+                        "duration": d["duration"],
+                        "cover": d["cover"],
+                        "dynamicCover": d.get("ai_dynamic_cover", d["cover"]),
+                        "playAddr": d["play"],
+                        "downloadAddr": d["wmplay"],
+                    },
+                    "statsV2": stats,
+                    "author": author,
+                    "music": music,
+                }
+                self.type = "video"
+
+            logger.info("[TikTok] tikwm succeeded for %s (type=%s)", self.link, self.type or 'slides')
+        except Exception as e:
+            logger.exception("[TikTok] tikwm post failed for %s: %s", self.link, e)
+            self.type = 'live'
+
+    async def _get_profile_via_tikwm(self):
+        """Получаем профиль пользователя через tikwm.com."""
+        try:
+            unique_id = self.link.split('/@')[1].split('/')[0].split('?')[0]
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.get(
+                    'https://www.tikwm.com/api/user/info',
+                    params={'unique_id': unique_id},
+                    headers={
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                    },
+                )
+                result = response.json()
+
+            if result.get('code') != 0:
+                logger.error("[TikTok] tikwm user/info error for %s: %s", self.link, result.get('msg'))
+                self.type = 'live'
+                return
+
+            d = result['data']
+            user = d['user']
+            stats = d['stats']
+
+            self.data = {
+                "user": {
+                    "id": user.get("id", ""),
+                    "uniqueId": user.get("uniqueId", unique_id),
+                    "nickname": user.get("nickname", unique_id),
+                    "avatarLarger": (
+                        user.get("avatarLarger")
+                        or user.get("avatarMedium")
+                        or user.get("avatarThumb", "")
+                    ),
+                    "signature": user.get("signature", ""),
+                    "bioLink": user.get("bioLink"),
+                },
+                "stats": {
+                    "followerCount": stats.get("followerCount", 0),
+                    "followingCount": stats.get("followingCount", 0),
+                    "heartCount": stats.get("heartCount", 0),
+                    "videoCount": stats.get("videoCount", 0),
+                },
+            }
+            self.type = 'profile'
+            logger.info("[TikTok] tikwm profile succeeded for %s", self.link)
+        except Exception as e:
+            logger.exception("[TikTok] tikwm profile failed for %s: %s", self.link, e)
+            self.type = 'live'
+
     async def get_type_content(self):
         if self.link in ['https://www.tiktok.com/', 'https://www.tiktok.com', 'www.tiktok.com/', 'www.tiktok.com', 'tiktok.com/', 'tiktok.com']:
             self.type = 'None'
             return
-        # Если данные уже пришли из browser_initialization, сразу разбираем их.
         if not self.type and isinstance(self.data, dict):
             await self.get_sub_type()
             return
@@ -197,17 +240,6 @@ class TikTokAPI:
             self.user.stats = self.data["stats"]
             self.user.bio_links = self.data["user"].get("bioLink")
         else:
-            if not self.type:
-                if not self.mobile:
-                    await self.browser_initialization()
-                    if not self.data:
-                        logger.error("[TikTok] Browser fallback failed to fetch data for %s", self.link)
-                        self.type = 'live'
-                        return
-                else:
-                    self.type = 'stories'
-                    await self.sstick_get()
-                    return
             await self.get_sub_type()
 
     async def get_sub_type(self):
@@ -240,25 +272,27 @@ class TikTokAPI:
             self.video = Video(self.content)
             self.user = User(self.content["author"])
             self.video.parent = self
+        else:
+            self.type = 'live'
 
     async def sstick_get(self):
-        headers = { 
+        headers = {
             'sec-ch-ua': '"Google Chrome";v="123", "Not:A-Brand";v="8", "Chromium";v="123"',
             'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
         }
-        params = { 'url': 'dl' }
+        params = {'url': 'dl'}
         data = {
             'id': self.link,
             'locale': 'ru',
             'tt': 'eG1ISHQ1',
         }
         async with httpx.AsyncClient() as client:
-            response = await client.post('https://ssstik.io/abc', params=params,headers=headers, data=data)
+            response = await client.post('https://ssstik.io/abc', params=params, headers=headers, data=data)
             soup = BeautifulSoup(response.text, 'html.parser')
             self.download_link = soup.find('a', class_='without_watermark').get('href')
             self.author = soup.find('h2').text
 
-    async def ssstik_download(self, user = False):
+    async def ssstik_download(self, user=False):
         self.path += "/video.mp4"
         async with httpx.AsyncClient() as client:
             response = await client.get(self.download_link)
@@ -269,85 +303,6 @@ class TikTokAPI:
         else:
             caption = f'👤 {user}\n\n🔗 <a href="{self.link}">{self.author}</a>'
         return FSInputFile(self.path, self.author), caption
-        
-
-    async def browser_initialization(self):
-        try:
-            async with async_playwright() as p:
-                browser = await p.chromium.launch(headless=True)
-                
-                context = await browser.new_context(
-                    **{
-                        **p.devices['Desktop Chrome'],
-                        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                        'viewport': {'width': 1920, 'height': 1080},
-                        'screen': {'width': 1920, 'height': 1080},
-                        'extra_http_headers': {
-                            'Accept-Language': 'en-US,en;q=0.9',
-                            'sec-ch-ua-platform': '"Windows"'
-                        }
-                    }
-                )
-                
-                page = await context.new_page()
-                await stealth_async(page)
-                
-                await page.add_init_script("""
-                    Object.defineProperty(navigator, 'platform', {
-                        get: function() { return 'Win32'; }
-                    });
-                    Object.defineProperty(navigator, 'userAgentData', {
-                        get: function() { 
-                            return { 
-                                platform: 'Windows',
-                                brands: [
-                                    {brand: 'Chromium', version: '120'},
-                                    {brand: 'Google Chrome', version: '120'},
-                                    {brand: 'Not-A.Brand', version: '99'}
-                                ]
-                            }; 
-                        }
-                    });
-                """)
-                
-                self.challenge = False
-                network_data_ready = asyncio.Event()
-                
-                async def save_responses_and_body(response):
-                    if response.url.startswith("https://www.tiktok.com/api/item/detail/") or response.url.startswith("https://www.tiktok.com/api/music/detail/"):
-                        body = await response.body()
-                        regular_string = body.decode('utf-8')
-                        self.data = json.loads(regular_string)
-                        network_data_ready.set()
-                    elif response.url.startswith("https://www.tiktok.com/api/challenge/detail/"):
-
-                        cookies = await page.context.cookies()
-                        for cookie in cookies:
-                            if cookie['name'] == 'tt_chain_token':
-                                self.tt_chain_token = cookie["value"]
-                                break
-                        body = await response.body()
-                        regular_string = body.decode('utf-8')
-                        self.data = json.loads(regular_string)
-                        self.challenge = True
-                    elif response.url.startswith("https://www.tiktok.com/api/challenge/item_list/") and self.challenge:
-                        body = await response.body()
-                        regular_string = body.decode('utf-8')
-                        self.content = json.loads(regular_string)["itemList"][0]
-                        network_data_ready.set()
-        
-                page.on("response", save_responses_and_body)
-                
-                await page.goto(self.link, wait_until="domcontentloaded", timeout=45000)
-                await asyncio.wait_for(network_data_ready.wait(), timeout=45)
-                cookies = await page.context.cookies()
-                for cookie in cookies:
-                    if cookie['name'] == 'tt_chain_token':
-                        self.tt_chain_token = cookie["value"]
-                        break
-                page.remove_listener("response", save_responses_and_body)
-        except Exception as e:
-            logger.exception("[TikTok] Error in browser initialization: %s", e)
 
     async def save(self):
         data = {
