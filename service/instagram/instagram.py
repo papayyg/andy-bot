@@ -89,7 +89,7 @@ class InstagramAPI:
         self.link = final_str
     
     async def get_type(self):
-        if '/p/' in self.link or '/reel/' in self.link:
+        if '/p/' in self.link or '/reel/' in self.link or '/reels/' in self.link:
             self.post = Post(self.link)
             self.post.parent = self
             await self.post.get_data(self.data)

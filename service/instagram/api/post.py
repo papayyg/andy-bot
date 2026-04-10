@@ -162,7 +162,7 @@ class Post:
             
             else:
                 data = self.parent.data["video_versions"][0]
-                width = data["width"]
+                width = self.parent.data.get("original_width") or data.get("width")
                 # В новой структуре (reels) используется original_height, в старой - height из video_versions
                 height = self.parent.data.get("original_height") or data.get("height")
                 if not self.parent.file_id:
