@@ -13,7 +13,7 @@ from utils.commands import set_commands_for_all_chats
 from middlewares.antiflood import AntiFloodMiddleware
 
 async def main():
-    bot = Bot(TEST_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    bot = Bot(BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = Dispatcher()
     
     dp.message.middleware(AntiFloodMiddleware())
